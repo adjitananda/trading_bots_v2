@@ -1,0 +1,21 @@
+# Core
+mysql-connector-python==8.1.0
+python-dotenv==1.0.0
+
+# Trading
+pybit==5.7.0
+pandas  # Убрали жёсткую версию
+pandas-ta  # Убрали жёсткую версию
+
+# Web/API
+flask==3.0.0
+requests==2.31.0
+
+# Telegram
+python-telegram-bot==20.7
+
+# Utils
+schedule==1.2.0
+python-json-logger==2.0.7
+setuptools==68.2.2
+wheel==0.41.2
