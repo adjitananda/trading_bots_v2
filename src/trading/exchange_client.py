@@ -196,6 +196,10 @@ class ExchangeClient:
             Список позиций в нормализованном формате
         """
         self._rate_limit()
+
+        # Для тестового бота возвращаем пустой список
+        if symbol == 'TEST_BOT':
+            return []
         
         try:
             if self.exchange_name == 'bybit':

@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""
+Бот для торговли LTCUSDT.
+Параметры из старой системы: MA (49, 74)
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Принудительно добавляем проект в PYTHONPATH
+os.environ["PYTHONPATH"] = str(Path(__file__).parent.parent) + ":" + os.environ.get("PYTHONPATH", "")
+
+from src.core.base_bot import TradingBot
+
+
+class LTCUSDTBot(TradingBot):
+    """Бот для торговли LTCUSDT"""
+    
+    def __init__(self):
+        config = {
+            'exchange': 'bybit',
+            'symbol': 'LTCUSDT',
+            
+            # Торговые параметры (из старой системы)
+            'tp': 0.035,  # 3.5%
+            'sl': 0.030,  # 3.0%
+            'timeframe': 5,  # 5 минут
+            'qty': 10,  # 10 USDT
+            'leverage': 1,
+            'max_positions': 1,
+            
+            # Стратегия MA crossover (длинные MA)
+            'strategy': 'ma_crossover',
+            'strategy_params': {
+                'short_ma': 49,
+                'long_ma': 74
+            },
+            
+            'risk_params': {
+                'max_drawdown': 5.0,
+                'max_consecutive_losses': 3,
+                'max_daily_loss': 30.0,
+                'max_position_size': 50.0
+            },
+            
+            'intervals': {
+                'status_log': 300,
+                'risk_check': 60,
+                'closed_check': 30,
+                'snapshot': 3600
+            }
+        }
+        
+        super().__init__('LTCUSDT', config)
+
+
+if __name__ == "__main__":
+    bot = LTCUSDTBot()
+    try:
+        bot.run()
+    except KeyboardInterrupt:
+        print("\n👋 Бот остановлен")
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()

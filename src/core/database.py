@@ -59,6 +59,20 @@ class Database:
         # Проверяем подключение при инициализации
         self._test_connection()
     
+    def get_orders_by_exchange_id(self, exchange_order_id: str) -> List[Dict]:
+        """
+        Получить ордера по ID на бирже.
+        
+        Args:
+            exchange_order_id: ID ордера на бирже
+            
+        Returns:
+            Список ордеров (обычно 0 или 1)
+        """
+        query = "SELECT * FROM orders WHERE exchange_order_id = %s ORDER BY id DESC"
+        return self.execute_query(query, (exchange_order_id,))
+
+
     def _test_connection(self):
         """Тест подключения к БД"""
         try:
@@ -726,9 +740,19 @@ class Database:
         result = self.execute_query(query, (bot_id, days), fetch_one=True)
         
         if result:
+            # Конвертируем все числовые значения в float
+            for key in ['total_pnl', 'avg_pnl', 'max_profit', 'max_loss', 'total_volume']:
+                if key in result:
+                    result[key] = self._to_float(result[key])
+            
             # Добавляем процент прибыльных
-            total = result['total_trades'] or 1
-            result['win_rate'] = (result['profitable_trades'] / total) * 100
+            total = result.get('total_trades', 0) or 0
+            profitable = result.get('profitable_trades', 0) or 0
+            
+            if total > 0:
+                result['win_rate'] = (float(profitable) / float(total)) * 100
+            else:
+                result['win_rate'] = 0.0
         
         return result or {}
     
@@ -755,7 +779,14 @@ class Database:
         """
         params.append(days)
         
-        return self.execute_query(query, tuple(params))
+        results = self.execute_query(query, tuple(params))
+        
+        # Конвертируем total_pnl в float для каждого результата
+        for row in results:
+            if 'total_pnl' in row:
+                row['total_pnl'] = self._to_float(row['total_pnl'])
+        
+        return results
     
     def get_open_positions_view(self) -> List[Dict]:
         """Получить открытые позиции через view"""
@@ -790,6 +821,17 @@ class Database:
         self._cache[key] = value
         self._cache_timeout[key] = datetime.now()
     
+    def _to_float(self, value):
+        """Безопасное преобразование в float"""
+        if value is None:
+            return 0.0
+        if isinstance(value, float):
+            return value
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
     def cache_clear(self):
         """Очистить кэш"""
         self._cache.clear()

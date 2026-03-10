@@ -1,0 +1,482 @@
+"""
+Базовый класс для всех торговых ботов.
+Объединяет все компоненты системы.
+"""
+
+import time
+import traceback
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+import signal
+import sys
+
+from src.trading.exchange_client import ExchangeClient, ExchangeFactory
+from src.trading.order_manager import OrderManager
+from src.trading.position_tracker import PositionTracker
+from src.core.database import db
+from src.strategies.legacy import StrategyFactory
+from src.messages.console_messages import ConsoleMessages
+from src.messages.telegram_messages import TelegramMessages
+from src.utils.time_utils import now_utc, now_local, utc_to_local
+
+
+class BotError(Exception):
+    """Базовое исключение для ошибок бота"""
+    pass
+
+
+class TradingBot:
+    """
+    Базовый класс торгового бота.
+    
+    Объединяет:
+    - ExchangeClient - работа с биржей
+    - OrderManager - управление ордерами
+    - PositionTracker - отслеживание позиций
+    - Strategy - торговую стратегию
+    - Database - запись в БД
+    """
+    
+    def __init__(self, bot_name: str, config: Dict[str, Any]):
+        """
+        Инициализация бота.
+        
+        Args:
+            bot_name: Имя бота (должно совпадать с именем в БД)
+            config: Конфигурация бота:
+                {
+                    'exchange': 'bybit',
+                    'tp': 0.035,  # в процентах (3.5%)
+                    'sl': 0.030,  # в процентах (3.0%)
+                    'timeframe': 5,  # минут
+                    'qty': 10,  # размер ордера в USDT
+                    'leverage': 1,
+                    'strategy': 'ma_crossover',
+                    'strategy_params': {'short_ma': 14, 'long_ma': 45},
+                    'risk_params': {
+                        'max_drawdown': 5.0,
+                        'max_consecutive_losses': 3,
+                        'max_daily_loss': 50.0,
+                        'max_position_size': 1000.0
+                    },
+                    'intervals': {
+                        'status_log': 300,  # 5 минут
+                        'risk_check': 60,   # 1 минута
+                        'closed_check': 30,  # 30 секунд
+                        'snapshot': 3600     # 1 час
+                    }
+                }
+        """
+        self.bot_name = bot_name
+        self.config = config
+        self.running = True
+        
+        # Загружаем или создаем бота в БД
+        self.bot_id = self._init_bot_in_db()
+        
+        # Инициализируем компоненты
+        self._init_components()
+        
+        # Интервалы
+        self.intervals = config.get('intervals', {
+            'status_log': 300,
+            'risk_check': 60,
+            'closed_check': 30,
+            'snapshot': 3600
+        })
+        
+        # Времена последних действий
+        self.last_actions = {
+            'status_log': 0,
+            'risk_check': 0,
+            'closed_check': 0,
+            'snapshot': 0
+        }
+        
+        # Статистика
+        self.stats = {
+            'signals_received': 0,
+            'orders_placed': 0,
+            'errors': 0
+        }
+        
+        # Обработчик сигналов
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        
+        print(ConsoleMessages.bot_startup(bot_name, config.get('symbol', bot_name)))
+    
+    def _init_bot_in_db(self) -> int:
+        """
+        Инициализировать запись о боте в БД.
+        Если бот уже существует, используем его.
+        Если нет - создаем новую версию.
+        """
+        # Проверяем, есть ли бот в БД
+        existing = db.get_bot_by_name(self.bot_name, active_only=False)
+        
+        if existing:
+            # Если бот существует, но не активен - активируем
+            if existing['status'] != 'active':
+                db.update_bot_status(existing['id'], 'active', 'startup')
+            return existing['id']
+        
+        # Если бота нет - создаем
+        exchange_id = db.get_exchange_id(self.config.get('exchange', 'bybit'))
+        if not exchange_id:
+            raise BotError(f"Биржа {self.config.get('exchange')} не найдена")
+        
+        bot_data = {
+            'name': self.bot_name,
+            'exchange_id': exchange_id,
+            'strategy_type': self.config.get('strategy', 'ma_crossover'),
+            'strategy_params': self.config.get('strategy_params', {}),
+            'risk_params': self.config.get('risk_params', {}),
+            'version': '1.0.0'
+        }
+        
+        return db.create_bot(bot_data)
+    
+    def _init_components(self):
+        """Инициализация всех компонентов"""
+        try:
+            # Клиент биржи
+            self.exchange = ExchangeClient(self.config.get('exchange', 'bybit'))
+            
+            # Менеджер ордеров
+            self.order_manager = OrderManager(
+                self.exchange,
+                self.bot_id,
+                self.bot_name
+            )
+            
+            # Трекер позиций
+            self.position_tracker = PositionTracker(
+                self.exchange,
+                self.bot_id,
+                self.bot_name
+            )
+            
+            # Стратегия
+            strategy_name = self.config.get('strategy', 'ma_crossover')
+            strategy_params = self.config.get('strategy_params', {})
+            self.strategy = StrategyFactory.create_strategy(strategy_name, strategy_params)
+            
+            print(ConsoleMessages.success(f"Стратегия: {self.strategy.name}"))
+            
+            # Параметры торговли
+            self.symbol = self.config.get('symbol', self.bot_name)
+            self.tp_percent = self.config.get('tp', 0.035) * 100  # в процентах
+            self.sl_percent = self.config.get('sl', 0.030) * 100
+            self.tp_decimal = self.config.get('tp', 0.035)  # для расчетов
+            self.sl_decimal = self.config.get('sl', 0.030)
+            self.timeframe = self.config.get('timeframe', 5)
+            self.qty_usdt = self.config.get('qty', 10)
+            self.leverage = self.config.get('leverage', 1)
+            self.max_positions = self.config.get('max_positions', 5)
+            
+            # Проверяем подключение
+            if not self.exchange.test_connection():
+                raise BotError("Не удалось подключиться к бирже")
+            
+            # Устанавливаем плечо
+            if self.leverage > 1:
+                self.exchange.set_leverage(self.symbol, self.leverage)
+            
+            # Устанавливаем режим позиций
+            self.exchange.set_position_mode(self.symbol)
+            
+            print(ConsoleMessages.bot_ready(
+                self.bot_name,
+                self.tp_decimal,
+                self.sl_decimal,
+                self.timeframe,
+                self.qty_usdt,
+                self.leverage,
+                self.max_positions,
+                self.strategy.name
+            ))
+            
+        except Exception as e:
+            raise BotError(f"Ошибка инициализации компонентов: {e}")
+    
+    def _signal_handler(self, signum, frame):
+        """Обработка сигналов остановки"""
+        print(ConsoleMessages.bot_stopped_by_user(self.bot_name))
+        self.running = False
+    
+    def _should_run(self, action: str, current_time: float) -> bool:
+        """Проверить, нужно ли выполнить действие"""
+        interval = self.intervals.get(action, 0)
+        last = self.last_actions.get(action, 0)
+        return current_time - last >= interval
+    
+    def _update_last_action(self, action: str, current_time: float):
+        """Обновить время последнего действия"""
+        self.last_actions[action] = current_time
+    
+    def _get_current_price(self) -> Optional[float]:
+        """Получить текущую цену"""
+        return self.exchange.get_current_price(self.symbol)
+    
+    def _calculate_quantity(self, price: float) -> float:
+        """Рассчитать количество для ордера"""
+        return self.exchange.calculate_quantity(self.symbol, self.qty_usdt, price)
+    
+    def _calculate_tp_sl(self, price: float, side: str) -> tuple:
+        """
+        Рассчитать цены TP и SL.
+        
+        Returns:
+            (tp_price, sl_price)
+        """
+        if side == 'buy':
+            tp_price = price * (1 + self.tp_decimal)
+            sl_price = price * (1 - self.sl_decimal)
+        else:
+            tp_price = price * (1 - self.tp_decimal)
+            sl_price = price * (1 + self.sl_decimal)
+        
+        # Округляем до точности инструмента
+        info = self.exchange.get_instrument_info(self.symbol)
+        precision = info.get('price_precision', 2)
+        
+        return round(tp_price, precision), round(sl_price, precision)
+    
+    def _log_status(self):
+        """Записать статус в БД"""
+        try:
+            # Получаем текущие данные
+            balance = self.exchange.get_balance()
+            positions = self.position_tracker.get_positions_summary()
+            total_pnl = self.position_tracker.get_total_pnl()
+            symbol_pnl = self.position_tracker.get_symbol_pnl()
+            
+            # Создаем снимок
+            self.position_tracker.create_snapshot()
+            
+            # Выводим в консоль
+            local_time = now_local()
+            print(ConsoleMessages.status_line(
+                local_time,
+                balance or 0,
+                symbol_pnl,
+                total_pnl,
+                positions.get('symbol_positions', 0),
+                positions.get('total_positions', 0),
+                self.max_positions
+            ))
+            
+            print(ConsoleMessages.status_logged(self.bot_name))
+            
+        except Exception as e:
+            print(ConsoleMessages.error(f"Ошибка логирования статуса: {e}"))
+    
+    def _check_risk(self):
+        """Проверить риск-параметры"""
+        try:
+            risk_params = self.config.get('risk_params', {})
+            if not risk_params:
+                return
+            
+            alerts = self.position_tracker.check_risk_limits(risk_params)
+            
+            for alert in alerts:
+                # Записываем в БД
+                db.create_alert({
+                    'bot_id': self.bot_id,
+                    'level': alert['level'],
+                    'type': alert['type'],
+                    'threshold_value': alert['threshold'],
+                    'actual_value': alert['actual'],
+                    'message': alert['message']
+                })
+                
+                # Выводим в консоль
+                if alert['level'] == 'CRITICAL':
+                    print(ConsoleMessages.error(alert['message']))
+                else:
+                    print(ConsoleMessages.warning(alert['message']))
+                
+                # TODO: Отправка в Telegram
+                
+                # Если CRITICAL - останавливаем бота
+                if alert['level'] == 'CRITICAL':
+                    print(ConsoleMessages.error(f"Критическое нарушение: останавливаю бота"))
+                    self.running = False
+                    
+                    # Создаем событие остановки
+                    db.create_stop_event({
+                        'bot_id': self.bot_id,
+                        'stop_type': 'soft',
+                        'stop_reason': alert['type'],
+                        'triggered_by': 'SYSTEM',
+                        'auto_restart_scheduled': False
+                    })
+                    
+                    db.update_bot_status(self.bot_id, 'stopped_soft', alert['type'])
+                    
+        except Exception as e:
+            print(ConsoleMessages.error(f"Ошибка проверки рисков: {e}"))
+    
+    def _check_closed_positions(self):
+        """Проверить закрытые позиции"""
+        try:
+            closed = self.order_manager.check_closed_positions(self.symbol)
+            
+            for trade in closed:
+                # TODO: Отправка в Telegram
+                print(ConsoleMessages.trade_updated(
+                    self.bot_name,
+                    trade['symbol'],
+                    trade['pnl']
+                ))
+                
+        except Exception as e:
+            print(ConsoleMessages.error(f"Ошибка проверки закрытых позиций: {e}"))
+    
+    def _execute_strategy(self):
+        """Выполнить торговую стратегию"""
+        try:
+            # Проверяем лимит позиций
+            positions = self.position_tracker.get_current_positions()
+            if len(positions) >= self.max_positions:
+                print(ConsoleMessages.max_positions_reached(self.max_positions))
+                return
+            
+            # Проверяем, есть ли уже позиция по нашему символу
+            for pos in positions:
+                if pos['symbol'] == self.symbol:
+                    print(ConsoleMessages.position_exists(self.symbol))
+                    return
+            
+            # Получаем свечи
+            df = self.exchange.get_klines(self.symbol, self.timeframe, limit=100)
+            if df is None or df.empty:
+                print(ConsoleMessages.no_data(self.symbol))
+                return
+            
+            # Получаем сигнал
+            signal = self.strategy.get_signal(df)
+            current_price = float(df['close'].iloc[-1])
+            
+            self.stats['signals_received'] += 1
+            
+            if signal == 'up':
+                print(ConsoleMessages.buy_signal(self.symbol, current_price))
+                self._open_position('buy', current_price)
+                
+            elif signal == 'down':
+                print(ConsoleMessages.sell_signal(self.symbol, current_price))
+                self._open_position('sell', current_price)
+                
+            else:
+                print(ConsoleMessages.no_signal(self.symbol))
+                
+        except Exception as e:
+            self.stats['errors'] += 1
+            print(ConsoleMessages.error(f"Ошибка выполнения стратегии: {e}"))
+            traceback.print_exc()
+    
+    def _open_position(self, side: str, price: float):
+        """
+        Открыть позицию.
+        
+        Args:
+            side: 'buy' или 'sell'
+            price: Текущая цена
+        """
+        try:
+            # Рассчитываем количество
+            quantity = self._calculate_quantity(price)
+            
+            # Рассчитываем TP/SL
+            tp_price, sl_price = self._calculate_tp_sl(price, side)
+            
+            # Размещаем ордер
+            result = self.order_manager.place_market_order(
+                symbol=self.symbol,
+                side=side,
+                quantity=quantity,
+                take_profit=tp_price,
+                stop_loss=sl_price,
+                tp_percent=self.tp_percent,
+                sl_percent=self.sl_percent
+            )
+            
+            if result['success']:
+                self.stats['orders_placed'] += 1
+                # TODO: Отправка в Telegram
+            else:
+                print(ConsoleMessages.error(f"Не удалось открыть позицию: {result.get('error')}"))
+                
+        except Exception as e:
+            self.stats['errors'] += 1
+            print(ConsoleMessages.error(f"Ошибка открытия позиции: {e}"))
+    
+    def run(self):
+        """Основной цикл бота"""
+        print(ConsoleMessages.info("Запуск основного цикла..."))
+        
+        # Небольшая задержка перед стартом
+        time.sleep(2)
+        
+        while self.running:
+            try:
+                current_time = time.time()
+                
+                # 1. Проверка закрытых позиций (часто)
+                if self._should_run('closed_check', current_time):
+                    self._check_closed_positions()
+                    self._update_last_action('closed_check', current_time)
+                
+                # 2. Проверка рисков (регулярно)
+                if self._should_run('risk_check', current_time):
+                    self._check_risk()
+                    self._update_last_action('risk_check', current_time)
+                
+                # 3. Логирование статуса (редко)
+                if self._should_run('status_log', current_time):
+                    self._log_status()
+                    self._update_last_action('status_log', current_time)
+                
+                # 4. Создание снимка (очень редко)
+                if self._should_run('snapshot', current_time):
+                    self.position_tracker.create_snapshot()
+                    self._update_last_action('snapshot', current_time)
+                
+                # 5. Торговая стратегия (если бот активен)
+                if self.running:
+                    self._execute_strategy()
+                
+                # Пауза между итерациями
+                time.sleep(10)
+                
+            except KeyboardInterrupt:
+                print(ConsoleMessages.bot_stopped_by_user(self.bot_name))
+                break
+                
+            except Exception as e:
+                self.stats['errors'] += 1
+                print(ConsoleMessages.error(f"Критическая ошибка в цикле: {e}"))
+                traceback.print_exc()
+                time.sleep(30)
+        
+        # Завершение работы
+        self._cleanup()
+    
+    def _cleanup(self):
+        """Очистка при завершении"""
+        print(ConsoleMessages.bot_finished(self.bot_name))
+        
+        # Последний статус
+        try:
+            self._log_status()
+            db.update_bot_status(self.bot_id, 'stopped_soft', 'shutdown')
+        except:
+            pass
+        
+        print(f"\n📊 Статистика работы:")
+        print(f"   Сигналов получено: {self.stats['signals_received']}")
+        print(f"   Ордеров размещено: {self.stats['orders_placed']}")
+        print(f"   Ошибок: {self.stats['errors']}")
