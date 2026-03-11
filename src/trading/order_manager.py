@@ -348,19 +348,19 @@ class OrderManager:
                 if not order_id:
                     continue
                 
-                # # ✅ ФИЛЬТР 1: Пропускаем очень старые ордера (> 24 часов)
-                # created_time = item.get("created_time")
-                # if created_time:
-                #     try:
-                #         # Конвертируем timestamp с биржи (в миллисекундах)
-                #         order_time = datetime.fromtimestamp(int(created_time) / 1000)
-                #         age_hours = (current_time - order_time).total_seconds() / 3600
+                # ✅ ФИЛЬТР 1: Пропускаем очень старые ордера (> 24 часов)
+                created_time = item.get("created_time")
+                if created_time:
+                    try:
+                        # Конвертируем timestamp с биржи (в миллисекундах)
+                        order_time = datetime.fromtimestamp(int(created_time) / 1000)
+                        age_hours = (current_time - order_time).total_seconds() / 3600
                         
-                #         if age_hours > 24:
-                #             skipped_old += 1
-                #             continue  # игнорируем старые ордера
-                #     except (ValueError, TypeError):
-                #         pass  # если не можем распарсить время, пропускаем проверку
+                        if age_hours > 24:
+                            skipped_old += 1
+                            continue  # игнорируем старые ордера
+                    except (ValueError, TypeError):
+                        pass  # если не можем распарсить время, пропускаем проверку
                 
                 # ✅ ФИЛЬТР 2: Проверяем, есть ли уже этот ордер в нашей БД
                 existing_orders = db.get_orders_by_exchange_id(order_id)

@@ -931,6 +931,35 @@ class TelegramCommander:
                 if closed:
                     pnl = closed[0]["pnl"]
                     source_info = f"[{closed[0].get('source_entry', '?')}→manual]"
+                    
+                    # ===== ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О ЗАКРЫТИИ =====
+                    try:
+                        from src.telegram.notifier import notifier
+                        
+                        # Получаем детали сделки для уведомления
+                        trade_details = db.get_trade(trade_id)
+                        if trade_details:
+                            notifier.send_close_notification({
+                                "bot_name": trade["bot_name"],
+                                "symbol": trade["symbol"],
+                                "side": trade_details["side"],
+                                "entry_price": float(trade_details["entry_price"]),
+                                "exit_price": float(closed[0].get("exit_price", 0)),
+                                "quantity": float(trade_details["quantity"]),
+                                "pnl": pnl,
+                                "pnl_percent": closed[0].get("pnl_percent", 0),
+                                "reason": "MANUAL",
+                                "balance": exchange.get_balance() or 0,
+                                "symbol_pnl": 0,  # TODO: добавить расчет
+                                "total_pnl": 0,   # TODO: добавить расчет
+                                "strategy_name": trade["bot_name"],  # или получить из БД
+                                "entry_time": trade_details["entry_time"],
+                                "order_id": result["order_id"]
+                            })
+                            print(f"✅ Уведомление о закрытии отправлено для {trade['symbol']}")
+                    except Exception as e:
+                        print(f"❌ Ошибка отправки уведомления о закрытии: {e}")
+                    
                     await query.edit_message_text(
                         f"✅ Позиция <b>{trade['symbol']}</b> закрыта {source_info}\n"
                         f"PnL: <b>{self._format_number_html(pnl)}</b> USDT",
@@ -1018,7 +1047,7 @@ class TelegramCommander:
                 tp_price = price * (1 - tp_percent / 100)
                 sl_price = price * (1 + sl_percent / 100)
             
-            # Открываем позицию
+            # Открываем позицию (ручная - source="manual")
             result = order_manager.place_market_order(
                 symbol=symbol,
                 side=side.lower(),
@@ -1027,7 +1056,7 @@ class TelegramCommander:
                 stop_loss=sl_price,
                 tp_percent=tp_percent,
                 sl_percent=sl_percent,
-                source="manual"
+                source="manual"  # Явно указываем, что это ручная сделка
             )
             
             if result["success"]:
@@ -1035,28 +1064,28 @@ class TelegramCommander:
                 try:
                     from src.telegram.notifier import notifier
                     
-                    # Получаем баланс и PnL
+                    # Получаем баланс и PnL (опционально)
                     balance = exchange.get_balance() or 0
                     
                     # Отправляем уведомление
                     notifier.send_trade_notification({
-                        'bot_id': bot['id'],
-                        'bot_name': symbol,
-                        'symbol': symbol,
-                        'side': side.lower(),
-                        'entry_price': result['entry_price'],
-                        'quantity': quantity,
-                        'tp_price': tp_price,
-                        'sl_price': sl_price,
-                        'tp_percent': tp_percent,
-                        'sl_percent': sl_percent,
-                        'order_id': result['order_id'],
-                        'balance': balance,
-                        'symbol_pnl': 0,  # TODO: получить реальный PnL
-                        'total_pnl': 0,   # TODO: получить реальный PnL
-                        'source': 'manual'
+                        "bot_id": bot["id"],
+                        "bot_name": symbol,
+                        "symbol": symbol,
+                        "side": side.lower(),
+                        "entry_price": result["entry_price"],
+                        "quantity": quantity,
+                        "tp_price": tp_price,
+                        "sl_price": sl_price,
+                        "tp_percent": tp_percent,
+                        "sl_percent": sl_percent,
+                        "order_id": result["order_id"],
+                        "balance": balance,
+                        "symbol_pnl": 0,  # TODO: можно добавить расчет
+                        "total_pnl": 0,   # TODO: можно добавить расчет
+                        "source": "manual"
                     })
-                    print(f"✅ Уведомление отправлено для сделки {symbol}")
+                    print(f"✅ Уведомление отправлено для ручной сделки {symbol}")
                 except Exception as e:
                     print(f"❌ Ошибка отправки уведомления: {e}")
                 
