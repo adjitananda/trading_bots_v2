@@ -332,6 +332,9 @@ class OrderManager:
         Returns:
             Список закрытых сделок
         """
+        print(f"\n🔍🔍🔍 OrderManager.check_closed_positions() вызван для symbol={symbol}")
+        print(f"🔍 Текущее время: {now_utc()}")
+
         try:
             # Получаем закрытые сделки с биржи
             closed = self.exchange.get_closed_pnl(symbol=symbol, limit=50)
@@ -345,6 +348,10 @@ class OrderManager:
             
             for item in closed:
                 order_id = item.get("order_id")
+
+                print(f"\n  --- Проверка ордера {order_id} ---")
+                print(f"  Данные с биржи: side={item.get('side')}, pnl={item.get('pnl')}")
+
                 if not order_id:
                     continue
                 
@@ -440,6 +447,36 @@ class OrderManager:
                 
                 success = db.close_trade(trade_id, close_data)
                 if success:
+                    # ===== ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ =====
+                    try:
+                        from src.telegram.notifier import notifier
+                        trade_details = db.get_trade(trade_id)
+                        if trade_details:
+                            # Получаем бота для strategy_name
+                            bot = db.get_bot(trade_details['bot_id'])
+                            
+                            notifier.send_close_notification({
+                                "bot_name": trade_details['bot_name'],
+                                "symbol": item["symbol"],
+                                "side": trade_details["side"],
+                                "entry_price": float(trade_details["entry_price"]),
+                                "exit_price": item["exit_price"],
+                                "quantity": float(trade_details["quantity"]),
+                                "pnl": item["pnl"],
+                                "pnl_percent": pnl_percent,
+                                "reason": exit_reason,
+                                "balance": 0,  # можно добавить получение баланса
+                                "symbol_pnl": 0,
+                                "total_pnl": 0,
+                                "strategy_name": bot.get("strategy_type", "unknown") if bot else "unknown",
+                                "entry_time": trade_details["entry_time"],
+                                "order_id": order_id,
+                                "source_entry": source_entry,
+                                "source_exit": source_exit
+                            })
+                            print(f"  ✅ Уведомление о закрытии отправлено для сделки {trade_id}")
+                    except Exception as e:
+                        print(f"  ⚠️ Ошибка отправки уведомления о закрытии: {e}")
                     updated_trades.append({
                         "trade_id": trade_id,
                         "symbol": item["symbol"],

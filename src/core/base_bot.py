@@ -213,7 +213,6 @@ class TradingBot:
             print(f"📊 Позиций на бирже: {len(exchange_positions)}")
             
             # Получаем открытые сделки из БД
-            # ИСПРАВЛЕНО: используем одинарные кавычки внутри строки
             db_trades = db.execute_query(
                 "SELECT * FROM trades WHERE bot_id = %s AND status = 'open' AND symbol = %s",
                 (self.bot_id, self.symbol)
@@ -246,6 +245,37 @@ class TradingBot:
                         "exit_reason": "MANUAL",
                         "exit_order_id": "SYNC_CLOSE"
                     })
+                    
+                    # ===== ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ =====
+                    try:
+                        from src.telegram.notifier import notifier
+                        
+                        # Получаем детали сделки для уведомления
+                        trade_details = db.get_trade(trade["id"])
+                        if trade_details:
+                            # Отправляем уведомление о закрытии
+                            notifier.send_close_notification({
+                                "bot_name": self.bot_name,
+                                "symbol": self.symbol,
+                                "side": trade_details["side"],
+                                "entry_price": float(trade_details["entry_price"]),
+                                "exit_price": current_price,
+                                "quantity": float(trade_details["quantity"]),
+                                "pnl": pnl,
+                                "pnl_percent": pnl_percent,
+                                "reason": "MANUAL",
+                                "balance": self.exchange.get_balance() or 0,
+                                "symbol_pnl": self.position_tracker.get_symbol_pnl(),
+                                "total_pnl": self.position_tracker.get_total_pnl(),
+                                "strategy_name": self.strategy.name,
+                                "entry_time": trade_details["entry_time"],
+                                "order_id": "SYNC_CLOSE",
+                                "source_entry": trade_details.get("source_entry", "auto"),
+                                "source_exit": "manual"
+                            })
+                            print(f"  ✅ Уведомление о закрытии отправлено для сделки #{trade['id']}")
+                    except Exception as e:
+                        print(f"  ⚠️ Ошибка отправки уведомления: {e}")
                     
                     self.stats["sync_fixes"] += 1
                     print(f"   ✅ Сделка #{trade['id']} закрыта с PnL: {pnl:+.2f} USDT")
@@ -459,10 +489,15 @@ class TradingBot:
     
     def _check_closed_positions(self):
         """Проверить закрытые позиции и отправить уведомление"""
+        print(f"\n🔍 ДЕБАГ: _check_closed_positions() вызван для {self.bot_name}")
         try:
             closed = self.order_manager.check_closed_positions(self.symbol)
             
+            print(f"🔍 ДЕБАГ: order_manager.check_closed_positions() вернул {len(closed)} сделок")
+            
             for trade in closed:
+                print(f"🔍 ДЕБАГ: Обрабатываем сделку: {trade}")
+                
                 source_info = f"[{trade.get('source_entry', '?')}→{trade.get('source_exit', '?')}]"
                 print(ConsoleMessages.trade_updated(
                     self.bot_name,
@@ -474,8 +509,12 @@ class TradingBot:
                 try:
                     from src.telegram.notifier import notifier
                     
+                    print(f"🔍 ДЕБАГ: Пытаемся отправить уведомление для сделки {trade['trade_id']}")
+                    
                     trade_details = db.get_trade(trade["trade_id"])
                     if trade_details:
+                        print(f"🔍 ДЕБАГ: trade_details получены: {trade_details['id']}")
+                        
                         success = notifier.send_close_notification({
                             "bot_name": self.bot_name,
                             "symbol": trade["symbol"],
@@ -495,9 +534,16 @@ class TradingBot:
                             "source_entry": trade.get("source_entry"),
                             "source_exit": trade.get("source_exit")
                         })
+                        print(f"🔍 ДЕБАГ: Результат отправки уведомления: {success}")
                         if success:
                             print(f"  ✅ Уведомление о закрытии отправлено в Telegram")
+                    else:
+                        print(f"🔍 ДЕБАГ: trade_details НЕ ПОЛУЧЕНЫ для trade_id {trade['trade_id']}")
+                        
                 except Exception as e:
+                    print(f"🔍 ДЕБАГ: ОШИБКА при отправке уведомления: {e}")
+                    import traceback
+                    traceback.print_exc()
                     print(f"  ⚠️ Не удалось отправить уведомление: {e}")
                     
         except Exception as e:
