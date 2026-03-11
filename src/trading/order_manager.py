@@ -55,47 +55,51 @@ class OrderManager:
         except:
             return None
     
-    def _create_order_record(self, order_data: Dict) -> int:
+    def _create_order_record(self, order_data: Dict, source: str = "auto") -> int:
         """
         Создать запись об ордере в БД.
         
         Args:
             order_data: Данные ордера
+            source: Источник ордера ("auto" или "manual")
             
         Returns:
             ID записи в БД
         """
         return db.create_order({
-            'bot_id': self.bot_id,
-            'exchange_id': self.exchange_id,
-            'exchange_order_id': order_data['exchange_order_id'],
-            'symbol': order_data['symbol'],
-            'side': order_data['side'].upper(),
-            'order_type': order_data.get('order_type', 'market'),
-            'quantity': order_data['quantity'],
-            'price': order_data.get('price'),
-            'status': 'new'
+            "bot_id": self.bot_id,
+            "exchange_id": self.exchange_id,
+            "exchange_order_id": order_data["exchange_order_id"],
+            "symbol": order_data["symbol"],
+            "side": order_data["side"].upper(),
+            "order_type": order_data.get("order_type", "market"),
+            "quantity": order_data["quantity"],
+            "price": order_data.get("price"),
+            "status": "new",
+            "source": source  # НОВОЕ ПОЛЕ
         })
     
-    def _create_trade_record(self, trade_data: Dict) -> int:
+    def _create_trade_record(self, trade_data: Dict, source: str = "auto") -> int:
         """
         Создать запись о сделке в БД.
         
         Args:
             trade_data: Данные сделки
+            source: Источник сделки ("auto" или "manual")
             
         Returns:
             ID сделки в БД
         """
         return db.create_trade({
-            'bot_id': self.bot_id,
-            'exchange_id': self.exchange_id,
-            'symbol': trade_data['symbol'],
-            'side': trade_data['side'].upper(),
-            'entry_time': now_utc(),
-            'entry_price': trade_data['price'],
-            'quantity': trade_data['quantity'],
-            'entry_order_id': trade_data.get('order_id')
+            "bot_id": self.bot_id,
+            "exchange_id": self.exchange_id,
+            "symbol": trade_data["symbol"],
+            "side": trade_data["side"].upper(),
+            "entry_time": now_utc(),
+            "entry_price": trade_data["price"],
+            "quantity": trade_data["quantity"],
+            "entry_order_id": trade_data.get("order_id"),
+            "source_entry": source  # НОВОЕ ПОЛЕ
         })
     
     def _update_order_status(self, exchange_order_id: str, status_data: Dict):
@@ -104,30 +108,32 @@ class OrderManager:
     
     def place_market_order(self, symbol: str, side: str, quantity: float,
                           take_profit: float = None, stop_loss: float = None,
-                          tp_percent: float = None, sl_percent: float = None) -> Dict:
+                          tp_percent: float = None, sl_percent: float = None,
+                          source: str = "auto") -> Dict:  # НОВЫЙ ПАРАМЕТР
         """
         Разместить рыночный ордер с полным логированием.
         
         Args:
             symbol: Торговая пара
-            side: 'buy' или 'sell'
+            side: "buy" или "sell"
             quantity: Количество
             take_profit: Цена take profit
             stop_loss: Цена stop loss
             tp_percent: Процент TP (для отчета)
             sl_percent: Процент SL (для отчета)
+            source: Источник ордера ("auto" или "manual")
             
         Returns:
             Dict с результатом:
             {
-                'success': bool,
-                'order_id': str,
-                'trade_id': int,
-                'error': str (если ошибка)
+                "success": bool,
+                "order_id": str,
+                "trade_id": int,
+                "error": str (если ошибка)
             }
         """
         print(ConsoleMessages.analyzing_symbol(symbol))
-        print(f"  Размещение {side.upper()} ордера, количество: {quantity}")
+        print(f"  Размещение {side.upper()} ордера, количество: {quantity} (источник: {source})")
         
         # Получаем баланс до сделки
         open_balance = self._get_balance_before_trade()
@@ -142,55 +148,56 @@ class OrderManager:
                 stop_loss=stop_loss
             )
             
-            exchange_order_id = result['order_id']
+            exchange_order_id = result["order_id"]
             print(f"  ✅ Ордер размещен, ID: {exchange_order_id}")
             
             # 2. Создаем запись в таблице orders
             order_data = {
-                'exchange_order_id': exchange_order_id,
-                'symbol': symbol,
-                'side': side,
-                'order_type': 'market',
-                'quantity': quantity,
-                'price': None  # для market ордера цена неизвестна заранее
+                "exchange_order_id": exchange_order_id,
+                "symbol": symbol,
+                "side": side,
+                "order_type": "market",
+                "quantity": quantity,
+                "price": None  # для market ордера цена неизвестна заранее
             }
-            order_db_id = self._create_order_record(order_data)
+            order_db_id = self._create_order_record(order_data, source)
             
             # 3. Получаем текущую цену для записи сделки
             current_price = self.exchange.get_current_price(symbol)
             
             # 4. Создаем запись в таблице trades
             trade_data = {
-                'symbol': symbol,
-                'side': side,
-                'price': current_price,
-                'quantity': quantity,
-                'order_id': exchange_order_id
+                "symbol": symbol,
+                "side": side,
+                "price": current_price,
+                "quantity": quantity,
+                "order_id": exchange_order_id
             }
-            trade_id = self._create_trade_record(trade_data)
+            trade_id = self._create_trade_record(trade_data, source)
             
             # 5. Обновляем ордер с ссылкой на сделку
             self._update_order_status(exchange_order_id, {
-                'trade_id': trade_id,
-                'status': 'filled',
-                'filled_quantity': quantity,
-                'average_fill_price': current_price,
-                'finished_at': now_utc()
+                "trade_id": trade_id,
+                "status": "filled",
+                "filled_quantity": quantity,
+                "average_fill_price": current_price,
+                "finished_at": now_utc()
             })
             
             # 6. Сохраняем в кэш недавних ордеров
             self._recent_orders[exchange_order_id] = {
-                'trade_id': trade_id,
-                'symbol': symbol,
-                'side': side,
-                'quantity': quantity,
-                'entry_price': current_price,
-                'open_balance': open_balance,
-                'tp_price': take_profit,
-                'sl_price': stop_loss,
-                'tp_percent': tp_percent,
-                'sl_percent': sl_percent,
-                'timestamp': now_utc()
+                "trade_id": trade_id,
+                "symbol": symbol,
+                "side": side,
+                "quantity": quantity,
+                "entry_price": current_price,
+                "open_balance": open_balance,
+                "tp_price": take_profit,
+                "sl_price": stop_loss,
+                "tp_percent": tp_percent,
+                "sl_percent": sl_percent,
+                "source": source,  # НОВОЕ ПОЛЕ
+                "timestamp": now_utc()
             }
             
             print(ConsoleMessages.order_placed(symbol, side))
@@ -201,54 +208,55 @@ class OrderManager:
                 print(f"  🛑 SL: {stop_loss} ({sl_percent}%)")
             
             return {
-                'success': True,
-                'order_id': exchange_order_id,
-                'trade_id': trade_id,
-                'entry_price': current_price
+                "success": True,
+                "order_id": exchange_order_id,
+                "trade_id": trade_id,
+                "entry_price": current_price
             }
             
         except InsufficientBalanceError as e:
             error_msg = f"Недостаточно средств: {e}"
             print(ConsoleMessages.error(error_msg))
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
             
         except OrderError as e:
             error_msg = f"Ошибка ордера: {e}"
             print(ConsoleMessages.error(error_msg))
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
             
         except Exception as e:
             error_msg = f"Неожиданная ошибка: {e}"
             print(ConsoleMessages.error(error_msg))
             traceback.print_exc()
-            return {'success': False, 'error': error_msg}
+            return {"success": False, "error": error_msg}
     
-    def place_limit_order(self, symbol: str, side: str, price: float, quantity: float) -> Dict:
+    def place_limit_order(self, symbol: str, side: str, price: float, quantity: float,
+                         source: str = "auto") -> Dict:  # НОВЫЙ ПАРАМЕТР
         """
         Разместить лимитный ордер.
         """
         try:
             result = self.exchange.place_limit_order(symbol, side, price, quantity)
-            exchange_order_id = result['order_id']
+            exchange_order_id = result["order_id"]
             
             # Создаем запись в БД
             order_data = {
-                'exchange_order_id': exchange_order_id,
-                'symbol': symbol,
-                'side': side,
-                'order_type': 'limit',
-                'quantity': quantity,
-                'price': price
+                "exchange_order_id": exchange_order_id,
+                "symbol": symbol,
+                "side": side,
+                "order_type": "limit",
+                "quantity": quantity,
+                "price": price
             }
-            self._create_order_record(order_data)
+            self._create_order_record(order_data, source)
             
             return {
-                'success': True,
-                'order_id': exchange_order_id
+                "success": True,
+                "order_id": exchange_order_id
             }
             
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {"success": False, "error": str(e)}
     
     def check_order_status(self, exchange_order_id: str) -> Dict:
         """
@@ -264,10 +272,10 @@ class OrderManager:
                 # Если нет в кэше, ищем в БД
                 order = db.get_order(exchange_order_id)
                 if not order:
-                    return {'error': 'Ордер не найден'}
-                symbol = order['symbol']
+                    return {"error": "Ордер не найден"}
+                symbol = order["symbol"]
             else:
-                symbol = cached['symbol']
+                symbol = cached["symbol"]
             
             # Запрашиваем статус с биржи
             status = self.exchange.get_order_status(symbol, exchange_order_id)
@@ -275,18 +283,18 @@ class OrderManager:
             if status:
                 # Обновляем в БД
                 self._update_order_status(exchange_order_id, {
-                    'status': status['status'].lower(),
-                    'filled_quantity': status.get('executed_qty'),
-                    'average_fill_price': status.get('avg_price'),
-                    'finished_at': status.get('updated_time')
+                    "status": status["status"].lower(),
+                    "filled_quantity": status.get("executed_qty"),
+                    "average_fill_price": status.get("avg_price"),
+                    "finished_at": status.get("updated_time")
                 })
                 
                 return status
             
-            return {'error': 'Не удалось получить статус'}
+            return {"error": "Не удалось получить статус"}
             
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
     
     def cancel_order(self, symbol: str, exchange_order_id: str) -> bool:
         """
@@ -297,9 +305,9 @@ class OrderManager:
             
             if success:
                 self._update_order_status(exchange_order_id, {
-                    'status': 'cancelled',
-                    'cancel_reason': 'USER_CANCELLED',
-                    'finished_at': now_utc()
+                    "status": "cancelled",
+                    "cancel_reason": "USER_CANCELLED",
+                    "finished_at": now_utc()
                 })
                 
                 # Удаляем из кэша, если был
@@ -316,7 +324,7 @@ class OrderManager:
     def check_closed_positions(self, symbol: str = None) -> List[Dict]:
         """
         Проверить закрытые позиции и обновить сделки в БД.
-        Теперь игнорирует ордера старше 24 часов и уже обработанные.
+        Теперь использует поле source для точного определения причины закрытия.
         
         Args:
             symbol: Если указан, только по этому символу
@@ -336,23 +344,23 @@ class OrderManager:
             skipped_processed = 0
             
             for item in closed:
-                order_id = item.get('order_id')
+                order_id = item.get("order_id")
                 if not order_id:
                     continue
                 
-                # ✅ ФИЛЬТР 1: Пропускаем очень старые ордера (> 24 часов)
-                created_time = item.get('created_time')
-                if created_time:
-                    try:
-                        # Конвертируем timestamp с биржи (в миллисекундах)
-                        order_time = datetime.fromtimestamp(int(created_time) / 1000)
-                        age_hours = (current_time - order_time).total_seconds() / 3600
+                # # ✅ ФИЛЬТР 1: Пропускаем очень старые ордера (> 24 часов)
+                # created_time = item.get("created_time")
+                # if created_time:
+                #     try:
+                #         # Конвертируем timestamp с биржи (в миллисекундах)
+                #         order_time = datetime.fromtimestamp(int(created_time) / 1000)
+                #         age_hours = (current_time - order_time).total_seconds() / 3600
                         
-                        if age_hours > 24:
-                            skipped_old += 1
-                            continue  # игнорируем старые ордера
-                    except (ValueError, TypeError):
-                        pass  # если не можем распарсить время, пропускаем проверку
+                #         if age_hours > 24:
+                #             skipped_old += 1
+                #             continue  # игнорируем старые ордера
+                #     except (ValueError, TypeError):
+                #         pass  # если не можем распарсить время, пропускаем проверку
                 
                 # ✅ ФИЛЬТР 2: Проверяем, есть ли уже этот ордер в нашей БД
                 existing_orders = db.get_orders_by_exchange_id(order_id)
@@ -360,7 +368,7 @@ class OrderManager:
                     order_in_db = existing_orders[0]
                     
                     # Если ордер уже есть и он финальный (filled/cancelled) - пропускаем
-                    if order_in_db['status'] in ['filled', 'cancelled', 'rejected']:
+                    if order_in_db["status"] in ["filled", "cancelled", "rejected"]:
                         skipped_processed += 1
                         continue
                 
@@ -368,7 +376,7 @@ class OrderManager:
                 existing = db.get_trades_by_order_id(order_id)
                 if existing:
                     trade = existing[0]
-                    if trade['status'] == 'closed':
+                    if trade["status"] == "closed":
                         skipped_processed += 1
                         continue
                     else:
@@ -378,57 +386,73 @@ class OrderManager:
                 # Ищем информацию в кэше
                 cached = self._recent_orders.get(order_id)
                 
-                # Определяем причину закрытия
-                exit_reason = self._determine_close_reason_short(item, cached)
+                # ===== УЛУЧШЕННОЕ ОПРЕДЕЛЕНИЕ ПРИЧИНЫ ЗАКРЫТИЯ =====
+                # Получаем источник ордера входа
+                source_entry = "auto"
+                if cached and cached.get("source"):
+                    source_entry = cached["source"]
+                else:
+                    # Пробуем найти в БД
+                    entry_orders = db.get_orders_by_exchange_id(order_id)
+                    if entry_orders and entry_orders[0].get("source"):
+                        source_entry = entry_orders[0]["source"]
+                
+                # Определяем причину закрытия с учётом источника
+                exit_reason, source_exit = self._determine_close_reason_enhanced(
+                    item, cached, source_entry
+                )
                 
                 # Рассчитываем PnL процент
                 pnl_percent = 0
-                if item['entry_price'] > 0:
-                    if item['side'] == 'BUY':
-                        pnl_percent = ((item['exit_price'] - item['entry_price']) / item['entry_price']) * 100
+                if item["entry_price"] > 0:
+                    if item["side"] == "BUY":
+                        pnl_percent = ((item["exit_price"] - item["entry_price"]) / item["entry_price"]) * 100
                     else:
-                        pnl_percent = ((item['entry_price'] - item['exit_price']) / item['entry_price']) * 100
+                        pnl_percent = ((item["entry_price"] - item["exit_price"]) / item["entry_price"]) * 100
                 
                 # Получаем trade_id
                 trade_id = None
-                if cached and cached.get('trade_id'):
-                    trade_id = cached['trade_id']
+                if cached and cached.get("trade_id"):
+                    trade_id = cached["trade_id"]
                 else:
                     trades = db.get_trades_by_order_id(order_id)
                     if trades:
-                        trade_id = trades[0]['id']
+                        trade_id = trades[0]["id"]
                 
                 if not trade_id:
                     # Если не нашли trade_id, создаем запись в логах, но не кричим
-                    # Просто логируем в файл, а не в консоль
                     import logging
                     logging.debug(f"Order {order_id} has no associated trade - skipping")
                     continue
                 
                 # Подготавливаем данные для закрытия
-                exit_time = datetime.fromtimestamp(int(item['created_time']) / 1000) if item['created_time'] else now_utc()
+                exit_time = datetime.fromtimestamp(int(item["created_time"]) / 1000) if item["created_time"] else now_utc()
                 
                 close_data = {
-                    'exit_time': exit_time,
-                    'exit_price': item['exit_price'],
-                    'pnl': item['pnl'],
-                    'pnl_percent': pnl_percent,
-                    'exit_reason': exit_reason,
-                    'exit_order_id': order_id
+                    "exit_time": exit_time,
+                    "exit_price": item["exit_price"],
+                    "pnl": item["pnl"],
+                    "pnl_percent": pnl_percent,
+                    "exit_reason": exit_reason,
+                    "exit_order_id": order_id,
+                    "source_exit": source_exit  # НОВОЕ ПОЛЕ
                 }
                 
                 success = db.close_trade(trade_id, close_data)
                 if success:
                     updated_trades.append({
-                        'trade_id': trade_id,
-                        'symbol': item['symbol'],
-                        'pnl': item['pnl'],
-                        'pnl_percent': pnl_percent,
-                        'reason': exit_reason
+                        "trade_id": trade_id,
+                        "symbol": item["symbol"],
+                        "pnl": item["pnl"],
+                        "pnl_percent": pnl_percent,
+                        "reason": exit_reason,
+                        "source_entry": source_entry,
+                        "source_exit": source_exit
                     })
                     
                     # Только для действительно новых закрытий выводим в консоль
-                    print(f"  ✅ Сделка {trade_id} по {item['symbol']} закрыта: {item['pnl']:.2f} USDT ({pnl_percent:.2f}%)")
+                    source_info = f"[{source_entry}→{source_exit}]"
+                    print(f"  ✅ Сделка {trade_id} по {item["symbol"]} закрыта: {item["pnl"]:.2f} USDT ({pnl_percent:.2f}%) {source_info}")
                     
                     # Удаляем из кэша
                     self._recent_orders.pop(order_id, None)
@@ -447,56 +471,59 @@ class OrderManager:
             traceback.print_exc()
             return []
     
+    # ===== НОВЫЙ УЛУЧШЕННЫЙ МЕТОД ОПРЕДЕЛЕНИЯ ПРИЧИНЫ =====
+    def _determine_close_reason_enhanced(self, closed_item: Dict, cached: Optional[Dict], 
+                                         source_entry: str) -> tuple:
+        """
+        Определить причину и источник закрытия сделки.
+        
+        Args:
+            closed_item: Данные закрытой сделки с биржи
+            cached: Кэшированная информация об ордере входа
+            source_entry: Источник входа ("auto" или "manual")
+            
+        Returns:
+            tuple: (exit_reason, source_exit)
+        """
+        exit_price = closed_item["exit_price"]
+        
+        # Если есть кэшированная информация
+        if cached:
+            entry_price = cached.get("entry_price")
+            side = cached.get("side", "").upper()
+            tp_price = cached.get("tp_price")
+            sl_price = cached.get("sl_price")
+            
+            # Проверяем TP/SL с допуском 0.1%
+            if tp_price is not None and tp_price > 0:
+                if abs(exit_price - tp_price) / tp_price < 0.001:
+                    return ("TP", "auto" if source_entry == "auto" else "manual")
+            
+            if sl_price is not None and sl_price > 0:
+                if abs(exit_price - sl_price) / sl_price < 0.001:
+                    return ("SL", "auto" if source_entry == "auto" else "manual")
+            
+            # Если не TP/SL, но есть cached, значит это ручное закрытие
+            return ("MANUAL", "manual")
+        
+        # Если нет кэша, смотрим в БД
+        order_id = closed_item.get("order_id")
+        if order_id:
+            entry_orders = db.get_orders_by_exchange_id(order_id)
+            if entry_orders and entry_orders[0].get("source") == "auto":
+                # Автоматическая сделка, но не TP/SL (вероятно ручное закрытие)
+                return ("MANUAL", "manual")
+        
+        # По умолчанию
+        return ("UNKNOWN", "manual")
+    
+    # Оставляем старый метод для совместимости
     def _determine_close_reason_short(self, closed_item: Dict, cached: Optional[Dict]) -> str:
         """
-        Определить причину закрытия сделки (короткий код для БД).
-        
-        Returns:
-            'TP', 'SL', 'MANUAL' или 'UNKNOWN' - короткие коды для БД
+        Устаревший метод. Используйте _determine_close_reason_enhanced.
         """
-        if not cached:
-            # Если нет кэша, пытаемся определить по данным с биржи
-            # Проверяем, есть ли в closed_item информация о причине
-            # По умолчанию возвращаем UNKNOWN
-            return 'UNKNOWN'
-        
-        entry_price = cached.get('entry_price')
-        exit_price = closed_item['exit_price']
-        side = cached.get('side', '').upper()
-        
-        # Проверяем TP/SL
-        tp_price = cached.get('tp_price')
-        sl_price = cached.get('sl_price')
-        
-        # Если TP/SL установлены, проверяем совпадение
-        if tp_price is not None and tp_price > 0:
-            if abs(exit_price - tp_price) / tp_price < 0.001:  # 0.1% допуск
-                return 'TP'
-        
-        if sl_price is not None and sl_price > 0:
-            if abs(exit_price - sl_price) / sl_price < 0.001:
-                return 'SL'
-        
-        # Если не TP и не SL, но цена сильно отличается от входа
-        if side == 'BUY':
-            if exit_price > entry_price * 1.001:  # >0.1% profit
-                return 'TP'
-            elif exit_price < entry_price * 0.999:  # >0.1% loss
-                return 'SL'
-        else:  # SELL
-            if exit_price < entry_price * 0.999:
-                return 'TP'
-            elif exit_price > entry_price * 1.001:
-                return 'SL'
-        
-        return 'MANUAL'  # предположительно ручное закрытие
-    
-    # Оставляем старый метод для совместимости, но не используем его
-    def _determine_close_reason(self, closed_item: Dict, cached: Optional[Dict]) -> str:
-        """
-        Устаревший метод. Используйте _determine_close_reason_short.
-        """
-        return self._determine_close_reason_short(closed_item, cached)
+        reason, _ = self._determine_close_reason_enhanced(closed_item, cached, "auto")
+        return reason
     
     def get_recent_orders(self, limit: int = 10) -> List[Dict]:
         """Получить недавние ордера из БД"""
@@ -522,13 +549,14 @@ class OrderManager:
         if trades:
             trade = trades[0]
             return {
-                'trade_id': trade['id'],
-                'symbol': trade['symbol'],
-                'side': trade['side'],
-                'entry_price': float(trade['entry_price']),
-                'quantity': float(trade['quantity']),
-                'open_balance': trade.get('open_balance'),
-                'timestamp': trade['entry_time']
+                "trade_id": trade["id"],
+                "symbol": trade["symbol"],
+                "side": trade["side"],
+                "entry_price": float(trade["entry_price"]),
+                "quantity": float(trade["quantity"]),
+                "open_balance": trade.get("open_balance"),
+                "source_entry": trade.get("source_entry"),  # НОВОЕ ПОЛЕ
+                "timestamp": trade["entry_time"]
             }
         
         return None

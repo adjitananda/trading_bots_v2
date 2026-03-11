@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # Загружаем переменные окружения
-env_path = Path(__file__).parent.parent.parent / '.env'
+env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
 
 
@@ -39,17 +39,17 @@ class Database:
     def _initialize(self):
         """Инициализация подключения"""
         self.config = {
-            'host': os.getenv('MYSQL_HOST', 'localhost'),
-            'port': int(os.getenv('MYSQL_PORT', 3306)),
-            'user': os.getenv('MYSQL_USER', 'trader'),
-            'password': os.getenv('MYSQL_PASSWORD'),
-            'database': os.getenv('MYSQL_DATABASE', 'trading_bots_v2'),
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'autocommit': False,
-            'pool_name': 'trading_pool',
-            'pool_size': 5,
-            'buffered': True  # Добавляем buffered=True
+            "host": os.getenv("MYSQL_HOST", "localhost"),
+            "port": int(os.getenv("MYSQL_PORT", 3306)),
+            "user": os.getenv("MYSQL_USER", "trader"),
+            "password": os.getenv("MYSQL_PASSWORD"),
+            "database": os.getenv("MYSQL_DATABASE", "trading_bots_v2"),
+            "charset": "utf8mb4",
+            "use_unicode": True,
+            "autocommit": False,
+            "pool_name": "trading_pool",
+            "pool_size": 5,
+            "buffered": True
         }
         
         # Кэши для часто используемых данных
@@ -189,8 +189,8 @@ class Database:
         result = self.execute_query(query, (exchange_name,), fetch_one=True)
         
         if result:
-            self._cache[cache_key] = result['id']
-            return result['id']
+            self._cache[cache_key] = result["id"]
+            return result["id"]
         
         return None
     
@@ -221,13 +221,13 @@ class Database:
         
         Args:
             bot_data: {
-                'name': 'ETHUSDT',
-                'exchange_id': 1,
-                'strategy_type': 'ma_crossover',
-                'strategy_params': {...},
-                'risk_params': {...},
-                'version': '1.0.0',
-                'parent_bot_id': None
+                "name": "ETHUSDT",
+                "exchange_id": 1,
+                "strategy_type": "ma_crossover",
+                "strategy_params": {...},
+                "risk_params": {...},
+                "version": "1.0.0",
+                "parent_bot_id": None
             }
         """
         query = """
@@ -238,13 +238,13 @@ class Database:
         """
         
         params = (
-            bot_data['name'],
-            bot_data['exchange_id'],
-            bot_data['strategy_type'],
-            json.dumps(bot_data.get('strategy_params', {})),
-            json.dumps(bot_data.get('risk_params', {})),
-            bot_data.get('version', '1.0.0'),
-            bot_data.get('parent_bot_id')
+            bot_data["name"],
+            bot_data["exchange_id"],
+            bot_data["strategy_type"],
+            json.dumps(bot_data.get("strategy_params", {})),
+            json.dumps(bot_data.get("risk_params", {})),
+            bot_data.get("version", "1.0.0"),
+            bot_data.get("parent_bot_id")
         )
         
         return self.execute_insert(query, params)
@@ -268,6 +268,7 @@ class Database:
             WHERE b.name = %s
         """
         if active_only:
+            # ИСПРАВЛЕНО: используем одинарные кавычки внутри строки
             query += " AND b.is_active = TRUE AND b.status = 'active'"
         
         query += " ORDER BY b.created_at DESC LIMIT 1"
@@ -309,33 +310,35 @@ class Database:
         
         Args:
             trade_data: {
-                'bot_id': 1,
-                'exchange_id': 1,
-                'symbol': 'ETHUSDT',
-                'side': 'BUY',
-                'entry_time': datetime,
-                'entry_price': 1500.5,
-                'quantity': 0.1,
-                'entry_order_id': 'abc123'
+                "bot_id": 1,
+                "exchange_id": 1,
+                "symbol": "ETHUSDT",
+                "side": "BUY",
+                "entry_time": datetime,
+                "entry_price": 1500.5,
+                "quantity": 0.1,
+                "entry_order_id": "abc123",
+                "source_entry": "auto" или "manual"  # НОВОЕ ПОЛЕ
             }
         """
         query = """
             INSERT INTO trades (
                 bot_id, exchange_id, symbol, side,
                 entry_time, entry_price, quantity,
-                entry_order_id, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'open')
+                entry_order_id, status, source_entry
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'open', %s)
         """
         
         params = (
-            trade_data['bot_id'],
-            trade_data['exchange_id'],
-            trade_data['symbol'],
-            trade_data['side'],
-            trade_data['entry_time'],
-            trade_data['entry_price'],
-            trade_data['quantity'],
-            trade_data.get('entry_order_id')
+            trade_data["bot_id"],
+            trade_data["exchange_id"],
+            trade_data["symbol"],
+            trade_data["side"],
+            trade_data["entry_time"],
+            trade_data["entry_price"],
+            trade_data["quantity"],
+            trade_data.get("entry_order_id"),
+            trade_data.get("source_entry", "auto")  # По умолчанию auto
         )
         
         return self.execute_insert(query, params)
@@ -347,47 +350,59 @@ class Database:
         Args:
             trade_id: ID сделки
             close_data: {
-                'exit_time': datetime,
-                'exit_price': 1600.0,
-                'pnl': 100.0,
-                'pnl_percent': 6.67,
-                'exit_reason': 'TP',
-                'exit_order_id': 'def456'
+                "exit_time": datetime,
+                "exit_price": 1600.0,
+                "pnl": 100.0,
+                "pnl_percent": 6.67,
+                "exit_reason": "TP",
+                "exit_order_id": "def456",
+                "source_exit": "auto" или "manual"  # НОВОЕ ПОЛЕ
             }
         """
         # Сначала получаем сделку для расчета pnl_percent если не передан
-        if 'pnl_percent' not in close_data:
+        if "pnl_percent" not in close_data:
             trade = self.get_trade(trade_id)
             if trade:
-                entry_price = float(trade['entry_price'])
-                exit_price = float(close_data['exit_price'])
+                entry_price = float(trade["entry_price"])
+                exit_price = float(close_data["exit_price"])
                 
-                if trade['side'] == 'BUY':
+                if trade["side"] == "BUY":
                     pnl_percent = ((exit_price - entry_price) / entry_price) * 100
                 else:
                     pnl_percent = ((entry_price - exit_price) / entry_price) * 100
                 
-                close_data['pnl_percent'] = pnl_percent
+                close_data["pnl_percent"] = pnl_percent
         
-        query = """
-            UPDATE trades 
-            SET exit_time = %s, exit_price = %s, pnl = %s, pnl_percent = %s,
-                exit_reason = %s, exit_order_id = %s, status = 'closed',
-                updated_at = NOW()
-            WHERE id = %s AND status = 'open'
-        """
+        # Динамически строим запрос с учетом новых полей
+        set_parts = [
+            "exit_time = %s",
+            "exit_price = %s",
+            "pnl = %s",
+            "pnl_percent = %s",
+            "exit_reason = %s",
+            "exit_order_id = %s",
+            "status = 'closed'",
+            "updated_at = NOW()"
+        ]
+        params = [
+            close_data["exit_time"],
+            close_data["exit_price"],
+            close_data.get("pnl"),
+            close_data.get("pnl_percent"),
+            close_data.get("exit_reason"),
+            close_data.get("exit_order_id")
+        ]
         
-        params = (
-            close_data['exit_time'],
-            close_data['exit_price'],
-            close_data.get('pnl'),
-            close_data.get('pnl_percent'),
-            close_data.get('exit_reason'),
-            close_data.get('exit_order_id'),
-            trade_id
-        )
+        # Добавляем source_exit если передан
+        if "source_exit" in close_data:
+            set_parts.append("source_exit = %s")
+            params.append(close_data["source_exit"])
         
-        rows = self.execute_update(query, params)
+        params.append(trade_id)
+        
+        query = f"UPDATE trades SET {', '.join(set_parts)} WHERE id = %s AND status = 'open'"
+        
+        rows = self.execute_update(query, tuple(params))
         return rows > 0
     
     def get_trade(self, trade_id: int) -> Optional[Dict]:
@@ -438,37 +453,39 @@ class Database:
         
         Args:
             order_data: {
-                'trade_id': None или ID сделки,
-                'bot_id': 1,
-                'exchange_id': 1,
-                'exchange_order_id': 'abc123',
-                'symbol': 'ETHUSDT',
-                'side': 'BUY',
-                'order_type': 'market',
-                'quantity': 0.1,
-                'price': 1500.5,
-                'status': 'new'
+                "trade_id": None или ID сделки,
+                "bot_id": 1,
+                "exchange_id": 1,
+                "exchange_order_id": "abc123",
+                "symbol": "ETHUSDT",
+                "side": "BUY",
+                "order_type": "market",
+                "quantity": 0.1,
+                "price": 1500.5,
+                "status": "new",
+                "source": "auto" или "manual"  # НОВОЕ ПОЛЕ
             }
         """
         query = """
             INSERT INTO orders (
                 trade_id, bot_id, exchange_id, exchange_order_id,
                 symbol, side, order_type, quantity, price, status,
-                created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                source, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         """
         
         params = (
-            order_data.get('trade_id'),
-            order_data['bot_id'],
-            order_data['exchange_id'],
-            order_data['exchange_order_id'],
-            order_data['symbol'],
-            order_data['side'],
-            order_data['order_type'],
-            order_data['quantity'],
-            order_data.get('price'),
-            order_data['status']
+            order_data.get("trade_id"),
+            order_data["bot_id"],
+            order_data["exchange_id"],
+            order_data["exchange_order_id"],
+            order_data["symbol"],
+            order_data["side"],
+            order_data["order_type"],
+            order_data["quantity"],
+            order_data.get("price"),
+            order_data["status"],
+            order_data.get("source", "auto")  # По умолчанию auto
         )
         
         return self.execute_insert(query, params)
@@ -480,22 +497,22 @@ class Database:
         Args:
             exchange_order_id: ID ордера на бирже
             update_data: {
-                'status': 'filled',
-                'filled_quantity': 0.1,
-                'average_fill_price': 1500.5,
-                'finished_at': datetime,
-                'cancel_reason': '...',
-                'failure_reason': '...'
+                "status": "filled",
+                "filled_quantity": 0.1,
+                "average_fill_price": 1500.5,
+                "finished_at": datetime,
+                "cancel_reason": "...",
+                "failure_reason": "..."
             }
         """
         # Динамически строим запрос
         set_parts = []
         params = []
         
-        for field in ['status', 'filled_quantity', 'average_fill_price', 
-                      'finished_at', 'cancel_reason', 'failure_reason', 'metadata']:
+        for field in ["status", "filled_quantity", "average_fill_price", 
+                      "finished_at", "cancel_reason", "failure_reason", "metadata"]:
             if field in update_data:
-                if field in ['metadata']:
+                if field in ["metadata"]:
                     set_parts.append(f"{field} = %s")
                     params.append(json.dumps(update_data[field]))
                 else:
@@ -535,16 +552,16 @@ class Database:
         
         Args:
             snapshot_data: {
-                'bot_id': 1,
-                'exchange_id': 1,
-                'balance': 1000.5,
-                'total_pnl': 150.2,
-                'daily_pnl': 25.3,
-                'open_positions_count': 2,
-                'open_positions_json': [...],
-                'drawdown_current': 2.5,
-                'drawdown_max': 5.0,
-                'consecutive_losses': 0
+                "bot_id": 1,
+                "exchange_id": 1,
+                "balance": 1000.5,
+                "total_pnl": 150.2,
+                "daily_pnl": 25.3,
+                "open_positions_count": 2,
+                "open_positions_json": [...],
+                "drawdown_current": 2.5,
+                "drawdown_max": 5.0,
+                "consecutive_losses": 0
             }
         """
         query = """
@@ -556,16 +573,16 @@ class Database:
         """
         
         params = (
-            snapshot_data['bot_id'],
-            snapshot_data['exchange_id'],
-            snapshot_data['balance'],
-            snapshot_data['total_pnl'],
-            snapshot_data.get('daily_pnl'),
-            snapshot_data['open_positions_count'],
-            json.dumps(snapshot_data.get('open_positions_json', [])),
-            snapshot_data.get('drawdown_current', 0),
-            snapshot_data.get('drawdown_max', 0),
-            snapshot_data.get('consecutive_losses', 0)
+            snapshot_data["bot_id"],
+            snapshot_data["exchange_id"],
+            snapshot_data["balance"],
+            snapshot_data["total_pnl"],
+            snapshot_data.get("daily_pnl"),
+            snapshot_data["open_positions_count"],
+            json.dumps(snapshot_data.get("open_positions_json", [])),
+            snapshot_data.get("drawdown_current", 0),
+            snapshot_data.get("drawdown_max", 0),
+            snapshot_data.get("consecutive_losses", 0)
         )
         
         return self.execute_insert(query, params)
@@ -588,12 +605,12 @@ class Database:
         
         Args:
             alert_data: {
-                'bot_id': 1,
-                'level': 'WARNING',
-                'type': 'DRAWDOWN_EXCEEDED',
-                'threshold_value': 5.0,
-                'actual_value': 7.2,
-                'message': 'Просадка превышена'
+                "bot_id": 1,
+                "level": "WARNING",
+                "type": "DRAWDOWN_EXCEEDED",
+                "threshold_value": 5.0,
+                "actual_value": 7.2,
+                "message": "Просадка превышена"
             }
         """
         query = """
@@ -604,12 +621,12 @@ class Database:
         """
         
         params = (
-            alert_data['bot_id'],
-            alert_data['level'],
-            alert_data['type'],
-            alert_data.get('threshold_value'),
-            alert_data.get('actual_value'),
-            alert_data['message']
+            alert_data["bot_id"],
+            alert_data["level"],
+            alert_data["type"],
+            alert_data.get("threshold_value"),
+            alert_data.get("actual_value"),
+            alert_data["message"]
         )
         
         return self.execute_insert(query, params)
@@ -650,15 +667,15 @@ class Database:
         
         Args:
             stop_data: {
-                'bot_id': 1,
-                'alert_id': None,
-                'stop_type': 'soft',
-                'stop_reason': 'max_drawdown',
-                'triggered_by': 'SYSTEM',
-                'triggered_by_user_id': None,
-                'positions_before_stop': [...],
-                'auto_restart_scheduled': True,
-                'auto_restart_at': datetime
+                "bot_id": 1,
+                "alert_id": None,
+                "stop_type": "soft",
+                "stop_reason": "max_drawdown",
+                "triggered_by": "SYSTEM",
+                "triggered_by_user_id": None,
+                "positions_before_stop": [...],
+                "auto_restart_scheduled": True,
+                "auto_restart_at": datetime
             }
         """
         query = """
@@ -670,15 +687,15 @@ class Database:
         """
         
         params = (
-            stop_data['bot_id'],
-            stop_data.get('alert_id'),
-            stop_data['stop_type'],
-            stop_data['stop_reason'],
-            stop_data['triggered_by'],
-            stop_data.get('triggered_by_user_id'),
-            json.dumps(stop_data.get('positions_before_stop', [])),
-            stop_data.get('auto_restart_scheduled', False),
-            stop_data.get('auto_restart_at')
+            stop_data["bot_id"],
+            stop_data.get("alert_id"),
+            stop_data["stop_type"],
+            stop_data["stop_reason"],
+            stop_data["triggered_by"],
+            stop_data.get("triggered_by_user_id"),
+            json.dumps(stop_data.get("positions_before_stop", [])),
+            stop_data.get("auto_restart_scheduled", False),
+            stop_data.get("auto_restart_at")
         )
         
         return self.execute_insert(query, params)
@@ -741,18 +758,18 @@ class Database:
         
         if result:
             # Конвертируем все числовые значения в float
-            for key in ['total_pnl', 'avg_pnl', 'max_profit', 'max_loss', 'total_volume']:
+            for key in ["total_pnl", "avg_pnl", "max_profit", "max_loss", "total_volume"]:
                 if key in result:
                     result[key] = self._to_float(result[key])
             
             # Добавляем процент прибыльных
-            total = result.get('total_trades', 0) or 0
-            profitable = result.get('profitable_trades', 0) or 0
+            total = result.get("total_trades", 0) or 0
+            profitable = result.get("profitable_trades", 0) or 0
             
             if total > 0:
-                result['win_rate'] = (float(profitable) / float(total)) * 100
+                result["win_rate"] = (float(profitable) / float(total)) * 100
             else:
-                result['win_rate'] = 0.0
+                result["win_rate"] = 0.0
         
         return result or {}
     
@@ -783,8 +800,8 @@ class Database:
         
         # Конвертируем total_pnl в float для каждого результата
         for row in results:
-            if 'total_pnl' in row:
-                row['total_pnl'] = self._to_float(row['total_pnl'])
+            if "total_pnl" in row:
+                row["total_pnl"] = self._to_float(row["total_pnl"])
         
         return results
     
@@ -801,6 +818,86 @@ class Database:
             return self.execute_query("SELECT * FROM v_today_summary", fetch_one=True) or {}
         except:
             return {}
+    
+    # ==================== НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С SOURCE ====================
+    
+    def get_auto_trades(self, bot_id: int = None, days: int = 30) -> List[Dict]:
+        """
+        Получить автоматические сделки (source_entry = 'auto')
+        """
+        query = """
+            SELECT t.*, b.name as bot_name
+            FROM trades t
+            JOIN bots b ON t.bot_id = b.id
+            WHERE t.source_entry = 'auto'
+        """
+        params = []
+        
+        if bot_id:
+            query += " AND t.bot_id = %s"
+            params.append(bot_id)
+        
+        if days:
+            query += " AND t.entry_time >= NOW() - INTERVAL %s DAY"
+            params.append(days)
+        
+        query += " ORDER BY t.entry_time DESC"
+        
+        return self.execute_query(query, tuple(params) if params else None)
+    
+    def get_manual_trades(self, bot_id: int = None, days: int = 30) -> List[Dict]:
+        """
+        Получить ручные сделки (source_entry = 'manual')
+        """
+        query = """
+            SELECT t.*, b.name as bot_name
+            FROM trades t
+            JOIN bots b ON t.bot_id = b.id
+            WHERE t.source_entry = 'manual'
+        """
+        params = []
+        
+        if bot_id:
+            query += " AND t.bot_id = %s"
+            params.append(bot_id)
+        
+        if days:
+            query += " AND t.entry_time >= NOW() - INTERVAL %s DAY"
+            params.append(days)
+        
+        query += " ORDER BY t.entry_time DESC"
+        
+        return self.execute_query(query, tuple(params) if params else None)
+    
+    def get_strategy_performance(self, bot_id: int, days: int = 30) -> Dict:
+        """
+        Получить эффективность стратегии (только авто-сделки)
+        """
+        query = """
+            SELECT 
+                COUNT(*) as total_trades,
+                SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as profitable_trades,
+                SUM(CASE WHEN pnl < 0 THEN 1 ELSE 0 END) as loss_trades,
+                COALESCE(SUM(pnl), 0) as total_pnl,
+                COALESCE(AVG(pnl), 0) as avg_pnl
+            FROM trades 
+            WHERE bot_id = %s 
+                AND status = 'closed'
+                AND source_entry = 'auto'
+                AND exit_time >= NOW() - INTERVAL %s DAY
+        """
+        result = self.execute_query(query, (bot_id, days), fetch_one=True)
+        
+        if result:
+            total = result.get("total_trades", 0) or 0
+            profitable = result.get("profitable_trades", 0) or 0
+            
+            if total > 0:
+                result["win_rate"] = (float(profitable) / float(total)) * 100
+            else:
+                result["win_rate"] = 0.0
+        
+        return result or {}
     
     # ==================== КЭШИРОВАНИЕ ====================
     

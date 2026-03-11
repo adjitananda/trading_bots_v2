@@ -31,7 +31,7 @@ class ETHUSDTBot(TradingBot):
             'timeframe': 5,  # 5 минут
             'qty': 10,  # 10 USDT
             'leverage': 1,
-            'max_positions': 1,  # только одна позиция
+            'max_positions': 5,  # только одна позиция
             
             # Стратегия
             'strategy': 'ma_crossover',

@@ -58,12 +58,6 @@ class TradingBot:
         
         # Загружаем или создаем бота в БД
         self.bot_id = self._init_bot_in_db()
-
-        print(f"🔍 ДЕБАГ: Бот использует ID: {self.bot_id}")
-        # Проверим статус этого ID в БД
-        bot_check = db.get_bot(self.bot_id)
-        if bot_check:
-            print(f"🔍 ДЕБАГ: Статус в БД для ID {self.bot_id}: {bot_check['status']}")
         
         # Инициализируем компоненты
         self._init_components()
@@ -183,7 +177,7 @@ class TradingBot:
             self.timeframe = self.config.get('timeframe', 5)
             self.qty_usdt = self.config.get('qty', 10)
             self.leverage = self.config.get('leverage', 1)
-            self.max_positions = self.config.get('max_positions', 10)
+            self.max_positions = self.config.get('max_positions', 5)
             
             if not self.exchange.test_connection():
                 raise BotError("Не удалось подключиться к бирже")
@@ -315,50 +309,43 @@ class TradingBot:
         except Exception as e:
             print(f"⚠️ Ошибка при проверке синхронизации: {e}")
     
-    # def _check_db_status(self) -> bool:
-    #     """
-    #     Проверить статус бота в базе данных.
-        
-    #     Returns:
-    #         bool: True если бот должен продолжать работу, False если нужно остановиться
-    #     """
-    #     try:
-    #         # Получаем текущий статус из БД
-    #         bot = db.get_bot(self.bot_id)
-    #         if not bot:
-    #             print(ConsoleMessages.error(f"❌ Бот ID {self.bot_id} не найден в БД"))
-    #             return False
-            
-    #         current_status = bot['status']
-            
-    #         # Если статус изменился на 'stopped' - останавливаемся
-    #         if current_status != 'active':
-    #             print(ConsoleMessages.warning(f"\n⚠️ Обнаружено изменение статуса в БД: {current_status}"))
-    #             print(ConsoleMessages.warning(f"🛑 Бот останавливается по команде из Telegram"))
-                
-    #             # Отправляем уведомление в Telegram
-    #             try:
-    #                 notifier.send_bot_stop(self.bot_name)
-    #             except:
-    #                 pass
-                
-    #             self.stopped_by_telegram = True
-    #             self.stats['telegram_stops'] += 1
-    #             return False
-            
-    #         return True
-            
-    #     except Exception as e:
-    #         print(ConsoleMessages.error(f"❌ Ошибка при проверке статуса в БД: {e}"))
-    #         return True
-
     def _check_db_status(self) -> bool:
         """
-        ВРЕМЕННО: Всегда возвращаем True для диагностики
+        Проверить статус бота в базе данных.
+        
+        Returns:
+            bool: True если бот должен продолжать работу, False если нужно остановиться
         """
-        return True
-
-
+        try:
+            # Получаем текущий статус из БД
+            bot = db.get_bot(self.bot_id)
+            if not bot:
+                print(ConsoleMessages.error(f"❌ Бот ID {self.bot_id} не найден в БД"))
+                return False
+            
+            current_status = bot['status']
+            
+            # Если статус изменился на 'stopped' - останавливаемся
+            if current_status != 'active':
+                print(ConsoleMessages.warning(f"\n⚠️ Обнаружено изменение статуса в БД: {current_status}"))
+                print(ConsoleMessages.warning(f"🛑 Бот останавливается по команде из Telegram"))
+                
+                # Отправляем уведомление в Telegram
+                try:
+                    notifier.send_bot_stop(self.bot_name)
+                except:
+                    pass
+                
+                self.stopped_by_telegram = True
+                self.stats['telegram_stops'] += 1
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(ConsoleMessages.error(f"❌ Ошибка при проверке статуса в БД: {e}"))
+            return True
+    
     def _signal_handler(self, signum, frame):
         """Обработка сигналов остановки"""
         print(ConsoleMessages.bot_stopped_by_user(self.bot_name))
@@ -518,16 +505,16 @@ class TradingBot:
     def _execute_strategy(self):
         """Выполнить торговую стратегию"""
         try:
-            # # Проверяем позиции
-            # positions = self.position_tracker.get_current_positions()
-            # if len(positions) >= self.max_positions:
-            #     print(ConsoleMessages.max_positions_reached(self.max_positions))
-            #     return
+            # Проверяем позиции
+            positions = self.position_tracker.get_current_positions()
+            if len(positions) >= self.max_positions:
+                print(ConsoleMessages.max_positions_reached(self.max_positions))
+                return
             
-            # for pos in positions:
-            #     if pos['symbol'] == self.symbol:
-            #         print(ConsoleMessages.position_exists(self.symbol))
-            #         return
+            for pos in positions:
+                if pos['symbol'] == self.symbol:
+                    print(ConsoleMessages.position_exists(self.symbol))
+                    return
             
             # Получаем данные
             df = self.exchange.get_klines(self.symbol, self.timeframe, limit=100)
@@ -592,75 +579,13 @@ class TradingBot:
                 source=source
             )
             
-            # ВРЕМЕННО: принудительно отправляем тест
-            print("\n" + "🔥"*50)
-            print("🔥 ТЕСТ: принудительная отправка уведомления!")
-            print("🔥"*50)
-            
-            test_notify = {
-                'bot_id': self.bot_id,
-                'bot_name': self.bot_name,
-                'symbol': self.symbol,
-                'side': 'test',
-                'entry_price': 1234.56,
-                'quantity': 0.01,
-                'tp_price': 1250.0,
-                'sl_price': 1200.0,
-                'tp_percent': 2.0,
-                'sl_percent': 1.0,
-                'order_id': 'FORCED_TEST',
-                'balance': 1000,
-                'symbol_pnl': 0,
-                'total_pnl': 0,
-                'source': 'test'
-            }
-            notifier.send_trade_notification(test_notify)
-
             if result['success']:
-
-                # ===== ПРИНУДИТЕЛЬНОЕ ТЕСТОВОЕ УВЕДОМЛЕНИЕ =====
-                print("\n" + "🔥"*50)
-                print("🔥 ТЕСТ: принудительная отправка уведомления!")
-                print("🔥"*50)
-                
-                test_data = {
-                    'bot_id': self.bot_id,
-                    'bot_name': self.bot_name,
-                    'symbol': self.symbol,
-                    'side': side,
-                    'entry_price': result['entry_price'],
-                    'quantity': quantity,
-                    'tp_price': tp_price,
-                    'sl_price': sl_price,
-                    'tp_percent': self.tp_percent,
-                    'sl_percent': self.sl_percent,
-                    'order_id': result['order_id'],
-                    'balance': self.exchange.get_balance() or 0,
-                    'symbol_pnl': self.position_tracker.get_symbol_pnl(),
-                    'total_pnl': self.position_tracker.get_total_pnl(),
-                    'source': source
-                }
-                
-                print(f"🔥 Данные для отправки: {test_data}")
-                
-                try:
-                    notify_result = notifier.send_trade_notification(test_data)
-                    print(f"🔥 Результат отправки: {notify_result}")
-                except Exception as e:
-                    print(f"🔥 ОШИБКА: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
                 self.stats['orders_placed'] += 1
                 source_text = "автоматически" if not manual else "вручную"
                 print(f"  ✅ Позиция открыта {source_text}")
                 
                 # Отправляем уведомление
                 try:
-                    print("\n🔴🔴🔴🔴🔴 ДЕБАГ: ВНУТРИ try блока отправки уведомления! 🔴🔴🔴🔴🔴")
-                    print(f"🔴 ДЕБАГ: notifier существует? {notifier is not None}")
-                    print(f"🔴 ДЕБАГ: Собираем данные для уведомления...")
-                    
                     logger.info(f"📨 Пытаемся отправить уведомление о новой сделке: {self.symbol} {side}")
                     
                     notification_data = {
@@ -681,24 +606,13 @@ class TradingBot:
                         'source': source
                     }
                     
-                    print(f"🔴 ДЕБАГ: Данные собраны, вызываем notifier.send_trade_notification()")
-                    
                     notify_result = notifier.send_trade_notification(notification_data)
-                    
-                    print(f"🔴 ДЕБАГ: notifier.send_trade_notification вернул: {notify_result}")
                     logger.info(f"📨 Результат отправки уведомления: {notify_result}")
                     
                     if notify_result:
                         print(f"  ✅ Уведомление о новой сделке отправлено в Telegram")
-                    else:
-                        print(f"  ⚠️ notifier.send_trade_notification вернул False")
                     
                 except Exception as e:
-                    print(f"🔴 ДЕБАГ: ПЕРЕХВАТЧИК ИСКЛЮЧЕНИЯ СРАБОТАЛ!")
-                    print(f"🔴 ДЕБАГ: Тип исключения: {type(e).__name__}")
-                    print(f"🔴 ДЕБАГ: Сообщение: {e}")
-                    import traceback
-                    traceback.print_exc()
                     logger.error(f"❌ Ошибка при отправке уведомления: {e}", exc_info=True)
                     print(f"  ⚠️ Не удалось отправить уведомление: {e}")
                     
