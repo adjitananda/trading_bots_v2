@@ -280,27 +280,27 @@ class TradingBot:
                     self.stats["sync_fixes"] += 1
                     print(f"   ✅ Сделка #{trade['id']} закрыта с PnL: {pnl:+.2f} USDT")
             
-            # Случай 2: На бирже есть позиции, но в БД их нет
-            elif len(exchange_positions) > 0 and len(db_trades) == 0:
-                print(f"⚠️ Найдены расхождения: на бирже {len(exchange_positions)} позиций, в БД 0")
-                for pos in exchange_positions:
-                    print(f"   Создаю запись о позиции {pos['side']} @ {pos['entry_price']}")
+            # # Случай 2: На бирже есть позиции, но в БД их нет
+            # elif len(exchange_positions) > 0 and len(db_trades) == 0:
+            #     print(f"⚠️ Найдены расхождения: на бирже {len(exchange_positions)} позиций, в БД 0")
+            #     for pos in exchange_positions:
+            #         print(f"   Создаю запись о позиции {pos['side']} @ {pos['entry_price']}")
                     
-                    # Создаем запись о сделке в БД
-                    trade_id = db.create_trade({
-                        "bot_id": self.bot_id,
-                        "exchange_id": self.exchange_id,
-                        "symbol": self.symbol,
-                        "side": pos["side"],
-                        "entry_time": now_utc(),  # приблизительно
-                        "entry_price": pos["entry_price"],
-                        "quantity": pos["size"],
-                        "entry_order_id": "SYNC_CREATE",
-                        "source_entry": "auto"  # Предполагаем, что это автосделка
-                    })
+            #         # Создаем запись о сделке в БД
+            #         trade_id = db.create_trade({
+            #             "bot_id": self.bot_id,
+            #             "exchange_id": self.exchange_id,
+            #             "symbol": self.symbol,
+            #             "side": pos["side"],
+            #             "entry_time": now_utc(),  # приблизительно
+            #             "entry_price": pos["entry_price"],
+            #             "quantity": pos["size"],
+            #             "entry_order_id": "SYNC_CREATE",
+            #             "source_entry": "auto"  # Предполагаем, что это автосделка
+            #         })
                     
-                    self.stats["sync_fixes"] += 1
-                    print(f"   ✅ Создана сделка #{trade_id}")
+            #         self.stats["sync_fixes"] += 1
+            #         print(f"   ✅ Создана сделка #{trade_id}")
             
             # Случай 3: Количество совпадает, но могут быть несоответствия в деталях
             elif len(db_trades) == len(exchange_positions) and len(db_trades) > 0:
