@@ -219,7 +219,7 @@ def main():
     parser.add_argument('--symbol', type=str, required=True)
     parser.add_argument('--strategy', type=str, default=None)
     parser.add_argument('--days', type=int, default=90)
-    parser.add_argument('--trials', type=int, default=50)
+    parser.add_argument('--trials', type=int, default=100)
     parser.add_argument('--trigger', type=str, default=None)
     args = parser.parse_args()
     
