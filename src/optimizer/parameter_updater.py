@@ -4,7 +4,6 @@ Parameter Updater - обновление параметров стратегии
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -42,12 +41,12 @@ def update_params(bot_id: int, symbol: str, new_params: Dict[str, Any],
         if isinstance(current_params, str):
             current_params = json.loads(current_params)
         
-        # Обновляем параметры
+        # Обновляем параметры и устанавливаем reload_flag
         new_params_json = json.dumps(new_params)
         
         db.execute_update("""
             UPDATE bot_symbols 
-            SET strategy_params = %s, updated_at = NOW()
+            SET strategy_params = %s, reload_flag = 1, updated_at = NOW()
             WHERE bot_id = %s AND symbol = %s
         """, (new_params_json, bot_id, symbol))
         
@@ -62,13 +61,6 @@ def update_params(bot_id: int, symbol: str, new_params: Dict[str, Any],
                 SET applied = TRUE, applied_at = NOW(), old_params = %s
                 WHERE id = %s
             """, (json.dumps(current_params), history_id))
-        
-        # Отправляем сигнал боту на перезагрузку
-        signal_file = f"/tmp/reload_{bot_id}_{symbol}.signal"
-        with open(signal_file, 'w') as f:
-            f.write(f"reload_params|{bot_id}|{symbol}|{datetime.now().isoformat()}")
-        
-        logger.info(f"📡 Отправлен сигнал перезагрузки: {signal_file}")
         
         return True
         
@@ -131,6 +123,92 @@ def get_pending_optimizations() -> list:
     return result or []
 
 
+def check_reload_flag(bot_id: int, symbol: str) -> bool:
+    """
+    Проверить, есть ли сигнал на перезагрузку.
+    
+    Returns:
+        True если нужно перезагрузить параметры
+    """
+    result = db.execute_query("""
+        SELECT reload_flag FROM bot_symbols
+        WHERE bot_id = %s AND symbol = %s
+    """, (bot_id, symbol))
+    
+    if result and result[0].get('reload_flag', 0) == 1:
+        return True
+    return False
+
+
+def clear_reload_flag(bot_id: int, symbol: str) -> bool:
+    """
+    Сбросить флаг перезагрузки.
+    """
+    db.execute_update("""
+        UPDATE bot_symbols SET reload_flag = 0
+        WHERE bot_id = %s AND symbol = %s
+    """, (bot_id, symbol))
+    return True
+
+
+def get_risk_multiplier(bot_id: int, symbol: str) -> float:
+    """
+    Получить текущий множитель риска.
+    """
+    result = db.execute_query("""
+        SELECT risk_multiplier FROM bot_symbols
+        WHERE bot_id = %s AND symbol = %s
+    """, (bot_id, symbol))
+    
+    if result and result[0].get('risk_multiplier'):
+        return float(result[0]['risk_multiplier'])
+    return 1.0
+
+
+def set_risk_multiplier(bot_id: int, symbol: str, multiplier: float, reason: str = None) -> bool:
+    """
+    Установить множитель риска.
+    """
+    db.execute_update("""
+        UPDATE bot_symbols 
+        SET risk_multiplier = %s, updated_at = NOW()
+        WHERE bot_id = %s AND symbol = %s
+    """, (multiplier, bot_id, symbol))
+    
+    logger.info(f"📊 Risk multiplier для {symbol} установлен в {multiplier} (причина: {reason})")
+    return True
+
+
+def set_halted(bot_id: int, symbol: str, halted: bool) -> bool:
+    """
+    Установить статус остановки.
+    """
+    if halted:
+        db.execute_update("""
+            UPDATE bot_symbols 
+            SET halted_at = NOW()
+            WHERE bot_id = %s AND symbol = %s
+        """, (bot_id, symbol))
+    else:
+        db.execute_update("""
+            UPDATE bot_symbols 
+            SET halted_at = NULL
+            WHERE bot_id = %s AND symbol = %s
+        """, (bot_id, symbol))
+    return True
+
+
+def is_halted(bot_id: int, symbol: str) -> bool:
+    """
+    Проверить, находится ли символ в состоянии остановки.
+    """
+    result = db.execute_query("""
+        SELECT halted_at FROM bot_symbols
+        WHERE bot_id = %s AND symbol = %s AND halted_at IS NOT NULL
+    """, (bot_id, symbol))
+    return len(result) > 0
+
+
 def format_params_for_telegram(params: Dict) -> str:
     """Форматирует параметры для отправки в Telegram"""
     if not params:
@@ -144,7 +222,6 @@ def format_params_for_telegram(params: Dict) -> str:
 
 
 if __name__ == "__main__":
-    # Тест
     logging.basicConfig(level=logging.INFO)
     pending = get_pending_optimizations()
     print(f"Ожидающих оптимизаций: {len(pending)}")

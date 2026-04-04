@@ -363,6 +363,8 @@ class TradingBot:
             logger.error(f"❌ Ошибка сохранения снимка: {e}")
     
     def run(self):
+        # Проверяем флаги перезагрузки
+        self.check_reload_flag()
         """Основной цикл бота"""
         logger.info(f"🚀 Запуск бота {self.bot_name}")
         
@@ -455,6 +457,8 @@ class TradingBot:
                     logger.error(f"❌ Ошибка обработки сигнала: {e}")
     
     def run(self):
+        # Проверяем флаги перезагрузки
+        self.check_reload_flag()
         """Основной цикл бота (обновлённая версия с проверкой сигналов)"""
         logger.info(f"🚀 Запуск бота {self.bot_name}")
         
@@ -500,3 +504,40 @@ class TradingBot:
             notifier.send_bot_error(self.bot_name, str(e))
         finally:
             self.stop()
+
+    # ==================== ПРОВЕРКА RELOAD_FLAG ====================
+    
+    def check_reload_flag(self):
+        """
+        Проверить флаг перезагрузки в БД для каждого символа.
+        Если reload_flag = 1 → перезагрузить параметры из БД и сбросить флаг.
+        """
+        for symbol in self.symbols:
+            from src.optimizer.parameter_updater import check_reload_flag, clear_reload_flag
+            
+            if check_reload_flag(self.bot_id, symbol):
+                logger.info(f"🔄 Обнаружен сигнал перезагрузки для {symbol}")
+                
+                # Перезагружаем параметры
+                self._load_symbols()
+                
+                # Сбрасываем флаг
+                clear_reload_flag(self.bot_id, symbol)
+                
+                logger.info(f"✅ Параметры для {symbol} перезагружены")
+                
+                # Отправляем уведомление
+                try:
+                    from src.telegram.notifier import notifier
+                    notifier.send_message(
+                        f"🔄 Бот {self.bot_name} перезагрузил параметры для {symbol}"
+                    )
+                except:
+                    pass
+    
+    def get_risk_multiplier(self, symbol: str) -> float:
+        """
+        Получить текущий множитель риска для символа.
+        """
+        from src.optimizer.parameter_updater import get_risk_multiplier
+        return get_risk_multiplier(self.bot_id, symbol)

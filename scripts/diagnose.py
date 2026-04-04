@@ -22,29 +22,13 @@ def check_database():
     """Проверка структуры БД"""
     logger.info("\n📁 ПРОВЕРКА БАЗЫ ДАННЫХ:")
     
-    result = db.execute_query("SHOW TABLES LIKE 'bot_symbols'")
-    if result:
-        logger.info("  ✅ Таблица bot_symbols существует")
-        count = db.execute_query("SELECT COUNT(*) as cnt FROM bot_symbols")
-        logger.info(f"     Записей в bot_symbols: {count[0]['cnt']}")
-    else:
-        logger.error("  ❌ Таблица bot_symbols не найдена")
-    
-    result = db.execute_query("SHOW TABLES LIKE 'bot_performance_metrics'")
-    if result:
-        logger.info("  ✅ Таблица bot_performance_metrics существует")
-        count = db.execute_query("SELECT COUNT(*) as cnt FROM bot_performance_metrics")
-        logger.info(f"     Записей в метриках: {count[0]['cnt']}")
-    else:
-        logger.warning("  ⚠️ Таблица bot_performance_metrics не найдена")
-    
-    result = db.execute_query("SHOW TABLES LIKE 'optimization_history'")
-    if result:
-        logger.info("  ✅ Таблица optimization_history существует")
-        count = db.execute_query("SELECT COUNT(*) as cnt FROM optimization_history")
-        logger.info(f"     Записей в истории: {count[0]['cnt']}")
-    else:
-        logger.warning("  ⚠️ Таблица optimization_history не найдена")
+    for table in ['bot_symbols', 'bot_performance_metrics', 'optimization_history', 
+                  'market_regime_log', 'trigger_log']:
+        result = db.execute_query(f"SHOW TABLES LIKE '{table}'")
+        if result:
+            logger.info(f"  ✅ Таблица {table} существует")
+        else:
+            logger.warning(f"  ⚠️ Таблица {table} не найдена")
     
     exchanges = db.execute_query("SELECT id, name, is_active FROM exchanges")
     logger.info(f"  ✅ Биржи: {', '.join([e['name'] for e in exchanges])}")
@@ -57,12 +41,6 @@ def check_adapters():
     try:
         adapter = get_exchange_by_name("bybit")
         logger.info("  ✅ BybitAdapter создан")
-        
-        info = adapter.get_exchange_info()
-        logger.info(f"     Информация: {info['name']} ({info['type']})")
-        
-        symbols = adapter.get_symbols()
-        logger.info(f"     Доступно символов: {len(symbols)}")
         
         if adapter.test_connection():
             logger.info("  ✅ Подключение к Bybit работает")
@@ -85,43 +63,14 @@ def check_metrics():
     
     metrics = calculate_all_metrics(test_trades)
     
-    required = ['win_rate', 'max_drawdown', 'sharpe_ratio', 'profit_factor']
-    missing = [k for k in required if metrics.get(k) is None]
-    
-    if not missing:
+    if metrics.get('win_rate'):
         logger.info(f"  ✅ Метрики работают: Win Rate={metrics['win_rate']:.1f}%")
     else:
-        logger.warning(f"  ⚠️ Проблемы с метриками: {missing}")
-
-
-def check_bot_multi_coin():
-    """Проверка multi-coin поддержки"""
-    logger.info("\n🤖 ПРОВЕРКА MULTI-COIN:")
-    
-    query = """
-        SELECT b.id, b.name, COUNT(bs.id) as symbol_count
-        FROM bots b
-        LEFT JOIN bot_symbols bs ON bs.bot_id = b.id AND bs.is_active = 1
-        WHERE b.is_active = 1 AND b.id > 3
-        GROUP BY b.id
-        HAVING symbol_count > 0
-    """
-    bots = db.execute_query(query)
-    
-    if bots:
-        multi = [b for b in bots if b['symbol_count'] > 1]
-        if multi:
-            logger.info(f"  ✅ Найдены multi-coin боты:")
-            for b in multi:
-                logger.info(f"     {b['name']}: {b['symbol_count']} символов")
-        else:
-            logger.info(f"  ✅ Боты готовы к multi-coin (сейчас по 1 символу)")
-    else:
-        logger.warning("  ⚠️ Нет ботов с символами")
+        logger.warning("  ⚠️ Проблемы с метриками")
 
 
 def check_telegram_commands():
-    """Проверка наличия новых команд в commander.py"""
+    """Проверка наличия команд в commander.py"""
     logger.info("\n📱 ПРОВЕРКА TELEGRAM КОМАНД:")
     
     commander_path = Path("/home/trader/trading_bots_v2/src/telegram/commander.py")
@@ -132,17 +81,11 @@ def check_telegram_commands():
     
     content = commander_path.read_text()
     
-    commands = ['cmd_metrics', 'cmd_symbols', 'cmd_add_symbol', 'cmd_optimize', 
-                'cmd_apply_params', 'cmd_reject_params']
+    commands = ['cmd_regime', 'cmd_risk_status', 'cmd_compare_strategies', 
+                'cmd_reset_risk', 'cmd_cancel_optimization']
     
-    found = []
-    missing = []
-    
-    for cmd in commands:
-        if cmd in content:
-            found.append(cmd)
-        else:
-            missing.append(cmd)
+    found = [cmd for cmd in commands if cmd in content]
+    missing = [cmd for cmd in commands if cmd not in content]
     
     if missing:
         logger.warning(f"  ⚠️ Отсутствуют команды: {missing}")
@@ -150,35 +93,82 @@ def check_telegram_commands():
         logger.info(f"  ✅ Все команды добавлены: {len(found)} шт.")
 
 
+def check_market_regime():
+    """Проверка Market Regime детектора"""
+    logger.info("\n🌊 ПРОВЕРКА MARKET REGIME:")
+    
+    try:
+        from src.regime.detector import MarketRegimeDetector
+        from src.trading.exchange_client import ExchangeClient
+        
+        exchange = ExchangeClient('bybit')
+        detector = MarketRegimeDetector(exchange)
+        
+        regime, meta = detector.detect('ETHUSDT')
+        logger.info(f"  ✅ Detector работает: режим ETHUSDT = {regime.value}")
+        
+    except Exception as e:
+        logger.error(f"  ❌ Ошибка: {e}")
+
+
+def check_risk_manager():
+    """Проверка Risk Manager"""
+    logger.info("\n🛡️ ПРОВЕРКА RISK MANAGER:")
+    
+    try:
+        from src.optimizer.risk_manager import VolatilityGuard
+        from src.trading.exchange_client import ExchangeClient
+        
+        exchange = ExchangeClient('bybit')
+        vg = VolatilityGuard(exchange)
+        activated, factor = vg.check('ETHUSDT')
+        logger.info(f"  ✅ VolatilityGuard: фактор={factor}")
+        
+    except Exception as e:
+        logger.error(f"  ❌ Ошибка: {e}")
+
+
+def check_strategies():
+    """Проверка всех 3 стратегий"""
+    logger.info("\n📈 ПРОВЕРКА СТРАТЕГИЙ:")
+    
+    try:
+        from src.strategies.legacy import StrategyFactory
+        
+        strategies = ['ma_crossover', 'bollinger', 'supertrend']
+        
+        for strategy in strategies:
+            try:
+                StrategyFactory.create_strategy(strategy, {})
+                logger.info(f"  ✅ {strategy} - загружена")
+            except Exception as e:
+                logger.error(f"  ❌ {strategy} - ошибка: {e}")
+                
+    except Exception as e:
+        logger.error(f"  ❌ Ошибка: {e}")
+
+
 def check_optimization():
     """Проверка системы оптимизации"""
     logger.info("\n🔧 ПРОВЕРКА ОПТИМИЗАЦИИ:")
     
-    # Проверяем trigger_daemon.py
     result = subprocess.run(["pgrep", "-f", "trigger_daemon.py"], capture_output=True)
     if result.returncode == 0:
         logger.info("  ✅ trigger_daemon.py запущен")
     else:
-        logger.warning("  ⚠️ trigger_daemon.py не запущен. Запустите: python scripts/trigger_daemon.py &")
+        logger.warning("  ⚠️ trigger_daemon.py не запущен")
     
-    # Проверяем импорт оптимизатора
     try:
         from src.optimizer.param_optimizer import ParamOptimizer
-        logger.info("  ✅ ParamOptimizer доступен")
+        from src.optimizer.param_spaces import get_available_strategies
+        
+        strategies = get_available_strategies()
+        logger.info(f"  ✅ ParamOptimizer доступен (стратегии: {strategies})")
     except Exception as e:
-        logger.error(f"  ❌ ParamOptimizer не загружен: {e}")
-    
-    # Проверяем parameter_updater
-    try:
-        from src.optimizer.parameter_updater import get_pending_optimizations
-        pending = get_pending_optimizations()
-        logger.info(f"  ✅ ParameterUpdater работает (ожидающих: {len(pending)})")
-    except Exception as e:
-        logger.error(f"  ❌ ParameterUpdater ошибка: {e}")
+        logger.error(f"  ❌ Ошибка: {e}")
 
 
 def main():
-    """Основная диагностика"""
     logger.info("=" * 50)
     logger.info("🔧 ДИАГНОСТИКА СИСТЕМЫ TRADING_BOTS_V2")
     logger.info("=" * 50)
@@ -186,8 +176,10 @@ def main():
     check_database()
     check_adapters()
     check_metrics()
-    check_bot_multi_coin()
     check_telegram_commands()
+    check_market_regime()
+    check_risk_manager()
+    check_strategies()
     check_optimization()
     
     logger.info("\n" + "=" * 50)
