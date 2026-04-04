@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Telegram Commander для управления торговыми ботами.
+Telegram Commander для управления торговыми ботами v2.
 """
 
 import os
@@ -54,31 +54,28 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("status", self.cmd_status))
         self.app.add_handler(CommandHandler("positions", self.cmd_positions))
         self.app.add_handler(CommandHandler("balance", self.cmd_balance))
-        self.app.add_handler(CommandHandler("pnl", self.cmd_pnl))
-        
-        # Новые команды спринта 1
         self.app.add_handler(CommandHandler("metrics", self.cmd_metrics))
         self.app.add_handler(CommandHandler("symbols", self.cmd_symbols))
-        self.app.add_handler(CommandHandler("add_symbol", self.cmd_add_symbol))
-        self.app.add_handler(CommandHandler("remove_symbol", self.cmd_remove_symbol))
-        self.app.add_handler(CommandHandler("reload", self.cmd_reload))
-        self.app.add_handler(CommandHandler("status_ext", self.cmd_status_extended))
-        self.app.add_handler(CommandHandler("help_ext", self.cmd_help_extended))
-        
-        # Команды оптимизации (спринт 2)
-        self.app.add_handler(CommandHandler("optimize", self.cmd_optimize))
-        self.app.add_handler(CommandHandler("optimize_status", self.cmd_optimize_status))
-        self.app.add_handler(CommandHandler("apply_params", self.cmd_apply_params))
-        self.app.add_handler(CommandHandler("reject_params", self.cmd_reject_params))
         
         # Команды Market Regime
         self.app.add_handler(CommandHandler("regime", self.cmd_regime))
         self.app.add_handler(CommandHandler("risk_status", self.cmd_risk_status))
         self.app.add_handler(CommandHandler("compare_strategies", self.cmd_compare_strategies))
         self.app.add_handler(CommandHandler("reset_risk", self.cmd_reset_risk))
+        
+        # Команды оптимизации
+        self.app.add_handler(CommandHandler("optimize", self.cmd_optimize))
+        self.app.add_handler(CommandHandler("optimize_status", self.cmd_optimize_status))
+        self.app.add_handler(CommandHandler("apply_params", self.cmd_apply_params))
+        self.app.add_handler(CommandHandler("reject_params", self.cmd_reject_params))
         self.app.add_handler(CommandHandler("cancel_optimization", self.cmd_cancel_optimization))
         
-        # Управляющие команды
+        # Управление символами
+        self.app.add_handler(CommandHandler("add_symbol", self.cmd_add_symbol))
+        self.app.add_handler(CommandHandler("remove_symbol", self.cmd_remove_symbol))
+        self.app.add_handler(CommandHandler("reload", self.cmd_reload))
+        
+        # Заглушки
         self.app.add_handler(CommandHandler("close", self.cmd_close))
         self.app.add_handler(CommandHandler("closeall", self.cmd_close_all))
         self.app.add_handler(CommandHandler("open", self.cmd_open))
@@ -124,65 +121,80 @@ class TelegramCommander:
         user = update.effective_user
         await update.message.reply_text(
             f"👋 Привет, {user.first_name}!\n\n"
-            f"Я бот для управления торговыми ботами v2.\n\n"
-            f"📊 /status - статус ботов\n"
-            f"📈 /positions - открытые позиции\n"
-            f"💰 /balance - баланс\n"
-            f"📊 /metrics ETHUSDT - метрики\n"
-            f"🔧 /optimize ETHUSDT SOLUSDT - запустить оптимизацию\n"
-            f"❓ /help - подробная справка"
+            f"🤖 Trading Bots V2 - автоматическая торговля на Bybit\n\n"
+            f"📊 Информация:\n"
+            f"/status - статус ботов\n"
+            f"/positions - открытые позиции\n"
+            f"/balance - баланс\n"
+            f"/metrics ETHUSDT - метрики бота\n"
+            f"/regime ETHUSDT - режим рынка\n"
+            f"/risk_status ETHUSDT - статус риска\n\n"
+            f"🔧 Управление:\n"
+            f"/optimize ETHUSDT SOLUSDT - оптимизация параметров\n"
+            f"/optimize_status - статус оптимизаций\n"
+            f"/apply_params 42 - применить параметры\n"
+            f"/reset_risk ETHUSDT - сбросить риск\n\n"
+            f"❓ /help - полная справка"
         )
     
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
-        help_text = """
-<b>🤖 УПРАВЛЕНИЕ БОТАМИ v2</b>
+        help_text = """🤖 TRADING BOTS V2 - ПОЛНАЯ СПРАВКА
 
-<b>📊 Информационные команды:</b>
+==================================================
+
+📊 ИНФОРМАЦИОННЫЕ КОМАНДЫ
+--------------------------------------------------
 /status - статус всех ботов
-/positions - открытые позиции
-/balance - текущий баланс
-/metrics ETHUSDT - метрики бота
+/positions - все открытые позиции
+/balance - текущий баланс USDT
+/metrics ETHUSDT - метрики бота (Win Rate, Sharpe, Max DD)
+/regime ETHUSDT - режим рынка (тренд/флэт/высокая волатильность)
+/risk_status ETHUSDT - текущий множитель риска
 
-<b>🔧 Оптимизация (НОВОЕ!):</b>
-/optimize ETHUSDT SOLUSDT - запустить оптимизацию
-/optimize_status - статус оптимизаций
-/apply_params 42 - применить параметры
-/reject_params 42 - отклонить параметры
+==================================================
 
-<b>📋 Управление символами:</b>
-/symbols ETHUSDT - список символов
+🔧 ОПТИМИЗАЦИЯ ПАРАМЕТРОВ
+--------------------------------------------------
+/optimize ETHUSDT SOLUSDT - запустить оптимизацию для символа
+/optimize_status - показать ожидающие оптимизации
+/apply_params 42 - применить найденные параметры
+/reject_params 42 - отклонить предложение
+/cancel_optimization 42 - отменить оптимизацию
+
+==================================================
+
+📈 СРАВНЕНИЕ СТРАТЕГИЙ
+--------------------------------------------------
+/compare_strategies ETHUSDT - сравнить 3 стратегии
+   • out-of-sample проверка (80%% train / 20%% test)
+   • overfit_ratio < 1.5 — параметры хорошие
+
+==================================================
+
+🛡️ УПРАВЛЕНИЕ РИСКАМИ
+--------------------------------------------------
+/reset_risk ETHUSDT - сбросить risk_multiplier в 1.0
+   • Автоматическое снижение риска при Warning (x0.5)
+   • Полная остановка при Halt (x0.0)
+
+==================================================
+
+📋 УПРАВЛЕНИЕ СИМВОЛАМИ
+--------------------------------------------------
+/symbols ETHUSDT - список символов бота
 /add_symbol ETHUSDT SOLUSDT - добавить символ
 /remove_symbol ETHUSDT SOLUSDT - удалить символ
+/reload ETHUSDT - перезагрузить параметры
 
-<b>📈 Команды для позиций:</b>
-/close ETHUSDT - закрыть позицию
-/open ETHUSDT BUY 10 - открыть позицию
+==================================================
 
-<b>🎮 Управление ботами:</b>
-/stop ETHUSDT - остановить бота
-/startbot ETHUSDT - запустить бота
-        """
-        await update.message.reply_text(help_text, parse_mode="HTML")
-    
-    async def cmd_help_extended(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        help_text = """
-<b>🤖 НОВЫЕ КОМАНДЫ ОПТИМИЗАЦИИ</b>
-
-/optimize ETHUSDT SOLUSDT - ручной запуск оптимизации
-/optimize_status - показать ожидающие оптимизации
-/apply_params 42 - применить параметры
-/reject_params 42 - отклонить предложение
-
-<b>Пример:</b>
-1. /optimize ETHUSDT ETHUSDT
-2. Ждёте результат (1-2 минуты)
-3. /apply_params 123
-        """
-        await update.message.reply_text(help_text, parse_mode="HTML")
+⚠️ ВАЖНО
+--------------------------------------------------
+• HIGH_VOLATILITY режим (ATR ratio > 2.0) — торговля запрещена
+• /open и /close в разработке, используйте ручные ордера на бирже"""
+        await update.message.reply_text(help_text)
     
     # ==================== ИНФОРМАЦИОННЫЕ КОМАНДЫ ====================
     
@@ -191,15 +203,17 @@ class TelegramCommander:
             return
         await update.message.reply_text("✅ Бот работает. Используйте /help")
     
-    async def cmd_status_extended(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("📊 Расширенный статус в разработке")
-    
     async def cmd_positions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
-        await update.message.reply_text("📈 Список позиций в разработке")
+        open_trades = db.get_open_trades()
+        if not open_trades:
+            await update.message.reply_text("📭 Нет открытых позиций")
+            return
+        message = "📈 ОТКРЫТЫЕ ПОЗИЦИИ\n\n"
+        for trade in open_trades:
+            message += f"{trade['symbol']}: {trade['side']} @ {float(trade['entry_price']):.4f}\n"
+        await update.message.reply_text(message)
     
     async def cmd_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
@@ -210,13 +224,6 @@ class TelegramCommander:
             await update.message.reply_text(f"💰 Баланс: ${balance:.2f} USDT")
         except Exception as e:
             await update.message.reply_text(f"❌ Ошибка: {e}")
-    
-    async def cmd_pnl(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("📊 Используйте /metrics для детальной статистики")
-    
-    # ==================== КОМАНДЫ МЕТРИК ====================
     
     async def cmd_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
@@ -252,7 +259,7 @@ class TelegramCommander:
             return
         args = context.args
         if not args:
-            await update.message.reply_text("❌ Укажите бота")
+            await update.message.reply_text("❌ Укажите бота. Пример: /symbols ETHUSDT")
             return
         bot_name = args[0].upper()
         bot = db.get_bot_by_name(bot_name)
@@ -267,6 +274,227 @@ class TelegramCommander:
             await update.message.reply_text(f"❌ У бота {bot_name} нет символов")
             return
         await update.message.reply_text(f"📋 Символы {bot_name}: {', '.join([s['symbol'] for s in symbols])}")
+    
+    # ==================== КОМАНДЫ MARKET REGIME ====================
+    
+    async def cmd_regime(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /regime ETHUSDT")
+            return
+        symbol = args[0].upper()
+        try:
+            from src.regime.detector import MarketRegimeDetector
+            exchange = ExchangeClient('bybit')
+            detector = MarketRegimeDetector(exchange)
+            regime, metadata = detector.detect(symbol)
+            await update.message.reply_text(
+                f"🌊 Режим рынка: {symbol}\n"
+                f"Текущий режим: {regime.value}\n"
+                f"ADX: {metadata.get('adx', 'N/A')}\n"
+                f"ATR ratio: {metadata.get('atr_ratio', 'N/A')}\n"
+                f"EMA200: {metadata.get('ema200_direction', 'N/A')}"
+            )
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ошибка: {e}")
+    
+    async def cmd_risk_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /risk_status ETHUSDT")
+            return
+        symbol = args[0].upper()
+        bot = db.get_bot_by_name(symbol)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {symbol} не найден")
+            return
+        from src.optimizer.parameter_updater import get_risk_multiplier, is_halted
+        multiplier = get_risk_multiplier(bot['id'], symbol)
+        halted = is_halted(bot['id'], symbol)
+        await update.message.reply_text(
+            f"📊 Risk Status: {symbol}\n\n"
+            f"Risk Multiplier: {multiplier:.2f}\n"
+            f"Halted: {'Да' if halted else 'Нет'}"
+        )
+    
+    async def cmd_compare_strategies(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /compare_strategies ETHUSDT")
+            return
+        symbol = args[0].upper()
+        await update.message.reply_text(f"🔄 Сравнение стратегий для {symbol}...\nЭто может занять 1-2 минуты.")
+        try:
+            from src.optimizer.param_optimizer import ParamOptimizer
+            bot = db.get_bot_by_name(symbol)
+            if not bot:
+                await update.message.reply_text(f"❌ Бот {symbol} не найден")
+                return
+            strategies = ['ma_crossover', 'bollinger', 'supertrend']
+            results = {}
+            for strategy in strategies:
+                optimizer = ParamOptimizer(bot['id'], symbol, strategy)
+                result = optimizer.optimize(days=60, n_trials=30, trigger_reason="compare_strategies")
+                if result:
+                    results[strategy] = {
+                        'train_sharpe': result.get('train_sharpe', 0),
+                        'test_sharpe': result.get('test_sharpe', 0),
+                        'overfit_ratio': result.get('overfit_ratio', 999),
+                    }
+            message = f"📊 Сравнение стратегий для {symbol}\n\n"
+            for strategy, data in results.items():
+                emoji = "✅" if data['overfit_ratio'] <= 1.5 else "❌"
+                message += f"{emoji} {strategy.upper()}\n"
+                message += f"   Train Sharpe: {data['train_sharpe']:.3f}\n"
+                message += f"   Test Sharpe: {data['test_sharpe']:.3f}\n"
+                message += f"   Overfit: {data['overfit_ratio']:.2f}\n\n"
+            await update.message.reply_text(message)
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ошибка: {e}")
+    
+    async def cmd_reset_risk(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /reset_risk ETHUSDT")
+            return
+        symbol = args[0].upper()
+        bot = db.get_bot_by_name(symbol)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {symbol} не найден")
+            return
+        from src.optimizer.parameter_updater import set_risk_multiplier, set_halted
+        set_risk_multiplier(bot['id'], symbol, 1.0, "Ручной сброс пользователем")
+        set_halted(bot['id'], symbol, False)
+        await update.message.reply_text(f"✅ Risk multiplier для {symbol} сброшен в 1.0")
+    
+    # ==================== КОМАНДЫ ОПТИМИЗАЦИИ ====================
+    
+    async def cmd_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text("❌ Формат: /optimize ETHUSDT SOLUSDT")
+            return
+        bot_name = args[0].upper()
+        symbol = args[1].upper()
+        bot = db.get_bot_by_name(bot_name)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
+            return
+        await update.message.reply_text(f"🚀 Запущена оптимизация для {symbol}\nЭто может занять 1-2 минуты...")
+        script_path = "/home/trader/trading_bots_v2/src/optimizer/param_optimizer.py"
+        try:
+            result = subprocess.run(
+                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20"],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode == 0:
+                opt_result = json.loads(result.stdout)
+                best_params = opt_result.get('best_params', {})
+                best_sharpe = opt_result.get('train_sharpe', 0)
+                message = f"✅ Оптимизация для {symbol} завершена!\n"
+                message += f"Лучшие параметры: {self._format_params(best_params)}\n"
+                message += f"Ожидаемый Sharpe: {best_sharpe:.4f}\n"
+                message += f"Для применения: /apply_params {opt_result.get('history_id')}"
+                await update.message.reply_text(message)
+            else:
+                await update.message.reply_text(f"❌ Ошибка: {result.stderr[:200]}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ошибка: {e}")
+    
+    async def cmd_optimize_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        from src.optimizer.parameter_updater import get_pending_optimizations
+        pending = get_pending_optimizations()
+        if not pending:
+            await update.message.reply_text("📭 Нет ожидающих оптимизаций")
+            return
+        message = "📊 ОЖИДАЮЩИЕ ОПТИМИЗАЦИИ\n\n"
+        for p in pending[:5]:
+            message += f"🆔 #{p['id']} - {p['bot_name']} {p['symbol']}\n"
+            message += f"   Sharpe: {p['best_sharpe']:.4f}\n"
+            message += f"   /apply_params {p['id']}\n\n"
+        await update.message.reply_text(message)
+    
+    async def cmd_apply_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите ID: /apply_params 42")
+            return
+        try:
+            history_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("❌ ID должен быть числом")
+            return
+        from src.optimizer.parameter_updater import update_params, get_pending_optimizations
+        pending = get_pending_optimizations()
+        target = None
+        for p in pending:
+            if p['id'] == history_id:
+                target = p
+                break
+        if not target:
+            await update.message.reply_text(f"❌ Оптимизация #{history_id} не найдена")
+            return
+        success = update_params(target['bot_id'], target['symbol'], target['best_params'], history_id)
+        if success:
+            await update.message.reply_text(f"✅ Параметры для {target['symbol']} обновлены!")
+        else:
+            await update.message.reply_text(f"❌ Ошибка применения параметров")
+    
+    async def cmd_reject_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите ID: /reject_params 42")
+            return
+        try:
+            history_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("❌ ID должен быть числом")
+            return
+        from src.optimizer.parameter_updater import reject_params
+        reason = " ".join(args[1:]) if len(args) > 1 else "Отклонено пользователем"
+        success = reject_params(history_id, reason)
+        if success:
+            await update.message.reply_text(f"✅ Оптимизация #{history_id} отклонена")
+        else:
+            await update.message.reply_text(f"❌ Ошибка")
+    
+    async def cmd_cancel_optimization(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите ID: /cancel_optimization 42")
+            return
+        try:
+            history_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("❌ ID должен быть числом")
+            return
+        opt = db.execute_query("SELECT id FROM optimization_history WHERE id = %s AND applied = 0 AND rejected = 0", (history_id,))
+        if not opt:
+            await update.message.reply_text(f"❌ Оптимизация #{history_id} не найдена")
+            return
+        from src.optimizer.parameter_updater import reject_params
+        reject_params(history_id, "Отменено пользователем")
+        await update.message.reply_text(f"✅ Оптимизация #{history_id} отменена")
+    
+    # ==================== УПРАВЛЕНИЕ СИМВОЛАМИ ====================
     
     async def cmd_add_symbol(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
@@ -283,149 +511,7 @@ class TelegramCommander:
             return
         await update.message.reply_text("🔄 Перезагрузка параметров...")
     
-    # ==================== КОМАНДЫ ОПТИМИЗАЦИИ ====================
-    
-    async def cmd_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        args = context.args
-        if len(args) < 2:
-            await update.message.reply_text("❌ Формат: /optimize ETHUSDT SOLUSDT")
-            return
-        
-        bot_name = args[0].upper()
-        symbol = args[1].upper()
-        
-        bot = db.get_bot_by_name(bot_name)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
-            return
-        
-        await update.message.reply_text(
-            f"🚀 Запущена оптимизация для {symbol}\n"
-            f"Это может занять 1-2 минуты..."
-        )
-        
-        script_path = "/home/trader/trading_bots_v2/src/optimizer/param_optimizer.py"
-        
-        try:
-            result = subprocess.run(
-                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20"],
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
-            
-            if result.returncode == 0:
-                opt_result = json.loads(result.stdout)
-                best_params = opt_result.get('best_params', {})
-                best_sharpe = opt_result.get('best_sharpe', 0)
-                
-                message = f"""✅ Оптимизация для {symbol} завершена!
-
-<b>Лучшие параметры:</b>
-{self._format_params(best_params)}
-
-<b>Ожидаемый Sharpe:</b> {best_sharpe:.4f}
-
-Для применения: /apply_params {opt_result.get('history_id')}
-Для отклонения: /reject_params {opt_result.get('history_id')}
-"""
-                await update.message.reply_text(message, parse_mode="HTML")
-            else:
-                await update.message.reply_text(f"❌ Ошибка: {result.stderr[:200]}")
-        except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка: {e}")
-    
-    async def cmd_optimize_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        
-        from src.optimizer.parameter_updater import get_pending_optimizations
-        
-        pending = get_pending_optimizations()
-        
-        if not pending:
-            await update.message.reply_text("📭 Нет ожидающих оптимизаций")
-            return
-        
-        message = "<b>📊 ОЖИДАЮЩИЕ ОПТИМИЗАЦИИ</b>\n\n"
-        for p in pending[:5]:
-            message += f"🆔 #{p['id']} - {p['bot_name']} {p['symbol']}\n"
-            message += f"   Sharpe: {p['best_sharpe']:.4f}\n"
-            message += f"   /apply_params {p['id']}\n\n"
-        
-        await update.message.reply_text(message, parse_mode="HTML")
-    
-    async def cmd_apply_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите ID: /apply_params 42")
-            return
-        
-        try:
-            history_id = int(args[0])
-        except ValueError:
-            await update.message.reply_text("❌ ID должен быть числом")
-            return
-        
-        from src.optimizer.parameter_updater import update_params, get_pending_optimizations
-        
-        pending = get_pending_optimizations()
-        target = None
-        for p in pending:
-            if p['id'] == history_id:
-                target = p
-                break
-        
-        if not target:
-            await update.message.reply_text(f"❌ Оптимизация #{history_id} не найдена")
-            return
-        
-        success = update_params(
-            target['bot_id'],
-            target['symbol'],
-            target['best_params'],
-            history_id
-        )
-        
-        if success:
-            await update.message.reply_text(
-                f"✅ Параметры для {target['symbol']} обновлены!\n"
-                f"Для применения перезапустите бота: sudo systemctl restart bot-{target['bot_name'].lower()}"
-            )
-        else:
-            await update.message.reply_text(f"❌ Ошибка применения параметров")
-    
-    async def cmd_reject_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите ID: /reject_params 42")
-            return
-        
-        try:
-            history_id = int(args[0])
-        except ValueError:
-            await update.message.reply_text("❌ ID должен быть числом")
-            return
-        
-        from src.optimizer.parameter_updater import reject_params
-        
-        reason = " ".join(args[1:]) if len(args) > 1 else "Отклонено пользователем"
-        success = reject_params(history_id, reason)
-        
-        if success:
-            await update.message.reply_text(f"✅ Оптимизация #{history_id} отклонена")
-        else:
-            await update.message.reply_text(f"❌ Ошибка")
-    
-    # ==================== ЗАГЛУШКИ ДЛЯ ОСТАЛЬНЫХ КОМАНД ====================
+    # ==================== ЗАГЛУШКИ ====================
     
     async def cmd_close(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ В разработке")
@@ -468,225 +554,3 @@ if __name__ == "__main__":
         sys.exit(1)
     commander = TelegramCommander(token)
     commander.run()
-
-    # ==================== КОМАНДЫ MARKET REGIME ====================
-    
-    async def cmd_regime(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Показать текущий режим рынка."""
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите символ. Пример: /regime ETHUSDT")
-            return
-        
-        symbol = args[0].upper()
-        
-        try:
-            from src.regime.detector import MarketRegimeDetector
-            from src.trading.exchange_client import ExchangeClient
-            
-            exchange = ExchangeClient('bybit')
-            detector = MarketRegimeDetector(exchange)
-            
-            regime, metadata = detector.detect(symbol)
-            
-            # Эмодзи для режима
-            regime_emojis = {
-                'high_volatility': '🌊🔴',
-                'strong_uptrend': '📈🟢',
-                'strong_downtrend': '📉🔴',
-                'ranging': '🟡📊'
-            }
-            emoji = regime_emojis.get(regime.value, '❓')
-            
-            message = f"""
-<b>{emoji} Режим рынка: {symbol}</b>
-
-<b>Текущий режим:</b> {regime.value.replace('_', ' ').upper()}
-
-<b>Метрики:</b>
-• ADX: {metadata.get('adx', 'N/A')}
-• ATR ratio: {metadata.get('atr_ratio', 'N/A')}
-• EMA200: {metadata.get('ema200_direction', 'N/A')}
-• Текущая цена: ${metadata.get('price', 'N/A')}
-
-<b>Интерпретация:</b>
-"""
-            
-            if regime.value == 'high_volatility':
-                message += "⚠️ Высокая волатильность! Торговля запрещена."
-            elif regime.value in ['strong_uptrend', 'strong_downtrend']:
-                message += "✅ Сильный тренд. Стратегии MA Crossover и SuperTrend могут работать."
-            else:
-                message += "🟡 Флэтовый рынок. Стратегия Bollinger Bands наиболее подходит."
-            
-            await update.message.reply_text(message, parse_mode="HTML")
-            
-        except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка: {e}")
-    
-    async def cmd_risk_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Показать risk_multiplier и причину снижения."""
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите символ. Пример: /risk_status ETHUSDT")
-            return
-        
-        symbol = args[0].upper()
-        
-        # Находим бота
-        bot = db.get_bot_by_name(symbol)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {symbol} не найден")
-            return
-        
-        from src.optimizer.parameter_updater import get_risk_multiplier, is_halted
-        
-        multiplier = get_risk_multiplier(bot['id'], symbol)
-        halted = is_halted(bot['id'], symbol)
-        
-        # Получаем последний триггер
-        trigger = db.execute_query("""
-            SELECT trigger_level, reasons, action_taken, timestamp
-            FROM trigger_log
-            WHERE bot_id = %s AND symbol = %s
-            ORDER BY timestamp DESC LIMIT 1
-        """, (bot['id'], symbol))
-        
-        message = f"""
-<b>📊 Risk Status: {symbol}</b>
-
-<b>Risk Multiplier:</b> {multiplier:.2f}
-<b>Halted:</b> {'✅ Да' if halted else '❌ Нет'}
-
-<b>Последний триггер:</b>
-"""
-        
-        if trigger:
-            t = trigger[0]
-            level_str = "⚠️ WARNING" if t['trigger_level'] == 1 else "🔴 HALT" if t['trigger_level'] == 2 else "🟢 OK"
-            message += f"""
-Уровень: {level_str}
-Действие: {t.get('action_taken', 'N/A')}
-Время: {t['timestamp']}
-"""
-        else:
-            message += "Нет срабатываний"
-        
-        await update.message.reply_text(message, parse_mode="HTML")
-    
-    async def cmd_compare_strategies(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Сравнить 3 стратегии на out-of-sample данных."""
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите символ. Пример: /compare_strategies ETHUSDT")
-            return
-        
-        symbol = args[0].upper()
-        
-        await update.message.reply_text(f"🔄 Сравнение стратегий для {symbol}...\nЭто может занять 1-2 минуты.")
-        
-        try:
-            from src.optimizer.param_optimizer import ParamOptimizer
-            
-            # Находим бота
-            bot = db.get_bot_by_name(symbol)
-            if not bot:
-                await update.message.reply_text(f"❌ Бот {symbol} не найден")
-                return
-            
-            strategies = ['ma_crossover', 'bollinger', 'supertrend']
-            results = {}
-            
-            for strategy in strategies:
-                optimizer = ParamOptimizer(bot['id'], symbol, strategy)
-                result = optimizer.optimize(days=60, n_trials=30, trigger_reason="compare_strategies")
-                
-                if result:
-                    results[strategy] = {
-                        'train_sharpe': result.get('train_sharpe', 0),
-                        'test_sharpe': result.get('test_sharpe', 0),
-                        'overfit_ratio': result.get('overfit_ratio', 999),
-                        'params': result.get('best_params', {})
-                    }
-            
-            # Формируем сообщение
-            message = f"<b>📊 Сравнение стратегий для {symbol}</b>\n\n"
-            
-            for strategy, data in results.items():
-                emoji = "🟢" if data['overfit_ratio'] <= 1.5 else "🔴"
-                message += f"{emoji} <b>{strategy.upper()}</b>\n"
-                message += f"   Train Sharpe: {data['train_sharpe']:.3f}\n"
-                message += f"   Test Sharpe: {data['test_sharpe']:.3f}\n"
-                message += f"   Overfit: {data['overfit_ratio']:.2f}\n"
-                message += f"   Параметры: {self._format_params(data['params'])}\n\n"
-            
-            message += "\n<i>Overfit ratio < 1.5 — хорошо, > 1.5 — переобучение</i>"
-            
-            await update.message.reply_text(message, parse_mode="HTML")
-            
-        except Exception as e:
-            await update.message.reply_text(f"❌ Ошибка: {e}")
-    
-    async def cmd_reset_risk(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Сбросить risk_multiplier в 1.0."""
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите символ. Пример: /reset_risk ETHUSDT")
-            return
-        
-        symbol = args[0].upper()
-        
-        bot = db.get_bot_by_name(symbol)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {symbol} не найден")
-            return
-        
-        from src.optimizer.parameter_updater import set_risk_multiplier, set_halted
-        
-        set_risk_multiplier(bot['id'], symbol, 1.0, "Ручной сброс пользователем")
-        set_halted(bot['id'], symbol, False)
-        
-        await update.message.reply_text(f"✅ Risk multiplier для {symbol} сброшен в 1.0\nТорговля возобновлена.")
-    
-    async def cmd_cancel_optimization(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Отменить запущенную оптимизацию."""
-        if not await self._check_auth(update):
-            return
-        
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите ID оптимизации. Пример: /cancel_optimization 42")
-            return
-        
-        try:
-            history_id = int(args[0])
-        except ValueError:
-            await update.message.reply_text("❌ ID должен быть числом")
-            return
-        
-        # Проверяем, существует ли оптимизация
-        opt = db.execute_query(
-            "SELECT id FROM optimization_history WHERE id = %s AND applied = 0 AND rejected = 0",
-            (history_id,)
-        )
-        
-        if not opt:
-            await update.message.reply_text(f"❌ Оптимизация #{history_id} не найдена или уже обработана")
-            return
-        
-        from src.optimizer.parameter_updater import reject_params
-        reject_params(history_id, "Отменено пользователем")
-        
-        await update.message.reply_text(f"✅ Оптимизация #{history_id} отменена")
