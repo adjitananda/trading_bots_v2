@@ -423,3 +423,80 @@ class TradingBot:
         
         # Отправляем уведомление
         notifier.send_bot_stop(self.bot_name)
+
+    # ==================== МЕТОДЫ ДЛЯ ПЕРЕЗАГРУЗКИ ПАРАМЕТРОВ ====================
+    
+    def check_reload_signal(self):
+        """
+        Проверить наличие сигнала на перезагрузку параметров.
+        Сигнал: файл /tmp/reload_{bot_id}_{symbol}.signal
+        """
+        for symbol in self.symbols:
+            signal_file = f"/tmp/reload_{self.bot_id}_{symbol}.signal"
+            if os.path.exists(signal_file):
+                try:
+                    with open(signal_file, 'r') as f:
+                        content = f.read()
+                    logger.info(f"📡 Получен сигнал перезагрузки для {symbol}: {content}")
+                    
+                    # Удаляем файл сигнала
+                    os.remove(signal_file)
+                    
+                    # Перезагружаем параметры
+                    self.reload_params()
+                    
+                    # Отправляем уведомление
+                    notifier.send_message(
+                        f"🔄 Бот {self.bot_name} перезагрузил параметры для {symbol}\n"
+                        f"Новые параметры применены."
+                    )
+                    
+                except Exception as e:
+                    logger.error(f"❌ Ошибка обработки сигнала: {e}")
+    
+    def run(self):
+        """Основной цикл бота (обновлённая версия с проверкой сигналов)"""
+        logger.info(f"🚀 Запуск бота {self.bot_name}")
+        
+        notifier.send_bot_startup(self.bot_name, self.config, self.config.get('strategy', 'unknown'))
+        
+        db.execute_update(
+            "UPDATE bots SET status = 'active', started_at = %s WHERE id = %s",
+            (now_local(), self.bot_id)
+        )
+        
+        try:
+            while self.running:
+                current_time = time.time()
+                
+                # Проверяем сигналы перезагрузки
+                self.check_reload_signal()
+                
+                # Основной торговый цикл
+                self.run_cycle()
+                
+                # Периодический лог статуса
+                if current_time - self.last_status_log >= self.intervals['status_log']:
+                    self.log_status()
+                    self.last_status_log = current_time
+                
+                # Периодическая проверка рисков
+                if current_time - self.last_risk_check >= self.intervals['risk_check']:
+                    for symbol in self.symbols:
+                        self.check_risk_limits(symbol)
+                    self.last_risk_check = current_time
+                
+                # Периодический снимок состояния
+                if current_time - self.last_snapshot >= self.intervals['snapshot']:
+                    self.take_snapshot()
+                    self.last_snapshot = current_time
+                
+                time.sleep(self.intervals['main_loop'])
+                
+        except KeyboardInterrupt:
+            logger.info(f"🛑 Получен сигнал остановки для {self.bot_name}")
+        except Exception as e:
+            logger.error(f"❌ Критическая ошибка в {self.bot_name}: {e}")
+            notifier.send_bot_error(self.bot_name, str(e))
+        finally:
+            self.stop()

@@ -6,10 +6,11 @@ Telegram Commander для управления торговыми ботами.
 import os
 import logging
 import asyncio
+import subprocess
+import json
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-import json
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -17,8 +18,6 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
-    MessageHandler,
-    filters
 )
 
 import sys
@@ -26,8 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.core.database import db
 from src.trading.exchange_client import ExchangeClient
-from src.trading.order_manager import OrderManager
-from src.utils.time_utils import now_local, utc_to_local, format_datetime
+from src.utils.time_utils import now_local
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -58,7 +56,7 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("balance", self.cmd_balance))
         self.app.add_handler(CommandHandler("pnl", self.cmd_pnl))
         
-        # Новые команды спринта
+        # Новые команды спринта 1
         self.app.add_handler(CommandHandler("metrics", self.cmd_metrics))
         self.app.add_handler(CommandHandler("symbols", self.cmd_symbols))
         self.app.add_handler(CommandHandler("add_symbol", self.cmd_add_symbol))
@@ -67,12 +65,16 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("status_ext", self.cmd_status_extended))
         self.app.add_handler(CommandHandler("help_ext", self.cmd_help_extended))
         
-        # Управляющие команды для позиций
+        # Команды оптимизации (спринт 2)
+        self.app.add_handler(CommandHandler("optimize", self.cmd_optimize))
+        self.app.add_handler(CommandHandler("optimize_status", self.cmd_optimize_status))
+        self.app.add_handler(CommandHandler("apply_params", self.cmd_apply_params))
+        self.app.add_handler(CommandHandler("reject_params", self.cmd_reject_params))
+        
+        # Управляющие команды
         self.app.add_handler(CommandHandler("close", self.cmd_close))
         self.app.add_handler(CommandHandler("closeall", self.cmd_close_all))
         self.app.add_handler(CommandHandler("open", self.cmd_open))
-        
-        # Управляющие команды для ботов
         self.app.add_handler(CommandHandler("stop", self.cmd_stop))
         self.app.add_handler(CommandHandler("stopall", self.cmd_stop_all))
         self.app.add_handler(CommandHandler("startbot", self.cmd_start_bot))
@@ -96,6 +98,17 @@ class TelegramCommander:
             return f"+{value:.2f}"
         return f"{value:.2f}"
     
+    def _format_params(self, params: Dict) -> str:
+        if not params:
+            return "не указаны"
+        parts = []
+        for k, v in params.items():
+            if isinstance(v, float):
+                parts.append(f"{k}={v:.2f}")
+            else:
+                parts.append(f"{k}={v}")
+        return ", ".join(parts)
+    
     # ==================== БАЗОВЫЕ КОМАНДЫ ====================
     
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -104,23 +117,14 @@ class TelegramCommander:
         user = update.effective_user
         await update.message.reply_text(
             f"👋 Привет, {user.first_name}!\n\n"
-            f"Я бот для управления торговыми ботами v2.\n"
-            f"Вот что я умею:\n\n"
-            f"📊 /status - общий статус всех ботов\n"
-            f"📈 /positions - все открытые позиции\n"
-            f"💰 /balance - текущий баланс\n"
-            f"📉 /pnl [дни] - PnL за период\n"
-            f"📊 /metrics ETHUSDT - метрики бота (НОВОЕ!)\n"
-            f"📋 /symbols ETHUSDT - список символов (НОВОЕ!)\n"
-            f"➕ /add_symbol ETHUSDT SOLUSDT - добавить символ (НОВОЕ!)\n"
-            f"🟢 /open - открыть позицию\n"
-            f"❌ /close - закрыть позицию\n"
-            f"▶️ /startbot - запустить бота\n"
-            f"🛑 /stop - остановить бота\n"
-            f"❓ /help - подробная справка\n"
-            f"❓ /help_ext - новые команды"
+            f"Я бот для управления торговыми ботами v2.\n\n"
+            f"📊 /status - статус ботов\n"
+            f"📈 /positions - открытые позиции\n"
+            f"💰 /balance - баланс\n"
+            f"📊 /metrics ETHUSDT - метрики\n"
+            f"🔧 /optimize ETHUSDT SOLUSDT - запустить оптимизацию\n"
+            f"❓ /help - подробная справка"
         )
-        db.log_command(str(user.id), user.username, "start", {}, True)
     
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
@@ -132,227 +136,63 @@ class TelegramCommander:
 /status - статус всех ботов
 /positions - открытые позиции
 /balance - текущий баланс
-/pnl 7 - PnL за 7 дней
-/metrics ETHUSDT - метрики бота (Win Rate, Max DD, Sharpe)
-/symbols ETHUSDT - список символов бота
+/metrics ETHUSDT - метрики бота
 
-<b>➕ Управление символами (НОВОЕ!):</b>
+<b>🔧 Оптимизация (НОВОЕ!):</b>
+/optimize ETHUSDT SOLUSDT - запустить оптимизацию
+/optimize_status - статус оптимизаций
+/apply_params 42 - применить параметры
+/reject_params 42 - отклонить параметры
+
+<b>📋 Управление символами:</b>
+/symbols ETHUSDT - список символов
 /add_symbol ETHUSDT SOLUSDT - добавить символ
 /remove_symbol ETHUSDT SOLUSDT - удалить символ
-/reload ETHUSDT - перезагрузить параметры
 
 <b>📈 Команды для позиций:</b>
 /close ETHUSDT - закрыть позицию
-/closeall - закрыть все позиции
-/open ETHUSDT BUY 10 - открыть LONG на 10 USDT
-/open ETHUSDT SELL 10 2 1 - SHORT с TP=2%, SL=1%
+/open ETHUSDT BUY 10 - открыть позицию
 
 <b>🎮 Управление ботами:</b>
 /stop ETHUSDT - остановить бота
-/stopall - остановить всех
 /startbot ETHUSDT - запустить бота
-/startall - запустить всех
-/status_ext - расширенный статус (символы + позиции)
-
-<b>📝 Примеры:</b>
-<code>/metrics ETHUSDT</code> - метрики ETH бота
-<code>/symbols ETHUSDT</code> - список символов
-<code>/add_symbol ETHUSDT SOLUSDT</code> - добавить SOL
-<code>/pnl 7</code> - прибыль за неделю
-<code>/open ETHUSDT BUY 10 2 1</code> - LONG с TP/SL
-
-<i>Новые команды: /metrics, /symbols, /add_symbol, /remove_symbol, /reload, /status_ext</i>
         """
         await update.message.reply_text(help_text, parse_mode="HTML")
-    
-    # ==================== НОВЫЕ КОМАНДЫ СПРИНТА ====================
-    
-    async def cmd_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await self._send_typing(update, context)
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите бота. Пример: /metrics ETHUSDT", parse_mode="HTML")
-            return
-        bot_name = args[0].upper()
-        symbol = args[1].upper() if len(args) > 1 else None
-        bot = db.get_bot_by_name(bot_name)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
-            return
-        if symbol:
-            query = "SELECT * FROM bot_performance_metrics WHERE bot_id = %s AND symbol = %s ORDER BY metric_date DESC LIMIT 1"
-            result = db.execute_query(query, (bot['id'], symbol))
-        else:
-            symbols_data = db.execute_query("SELECT symbol FROM bot_symbols WHERE bot_id = %s AND is_active = 1", (bot['id'],))
-            if not symbols_data:
-                await update.message.reply_text(f"❌ У бота {bot_name} нет активных символов")
-                return
-            symbol = symbols_data[0]['symbol']
-            query = "SELECT * FROM bot_performance_metrics WHERE bot_id = %s AND symbol = %s ORDER BY metric_date DESC LIMIT 1"
-            result = db.execute_query(query, (bot['id'], symbol))
-        if not result:
-            await update.message.reply_text(f"📊 Нет данных по метрикам для {symbol}\nЗапустите: python scripts/calculate_bot_metrics.py --bot_id {bot['id']}", parse_mode="HTML")
-            return
-        metrics = result[0]
-        message = f"""<b>📊 Метрики {symbol}</b>
-Бот: {bot_name}
-Период: {metrics['metric_date']}
-━━━━━━━━━━━━━━━━━━━━━━━
-📈 Win Rate: {metrics['win_rate']:.1f}%
-💰 Profit Factor: {metrics['profit_factor']:.2f}
-📉 Max Drawdown: {metrics['max_drawdown']:.2f}%
-⚡ Sharpe Ratio: {metrics['sharpe_ratio']:.2f}
-🎯 Sortino Ratio: {metrics['sortino_ratio']:.2f}
-━━━━━━━━━━━━━━━━━━━━━━━
-📊 Всего сделок: {metrics['total_trades']}
-💰 Общий PnL: {self._format_number_html(float(metrics['total_pnl']))} USDT"""
-        await update.message.reply_text(message, parse_mode="HTML")
-    
-    async def cmd_symbols(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите бота. Пример: /symbols ETHUSDT", parse_mode="HTML")
-            return
-        bot_name = args[0].upper()
-        bot = db.get_bot_by_name(bot_name)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
-            return
-        symbols = db.execute_query("""
-            SELECT s.symbol, s.is_active, COUNT(t.id) as open_positions
-            FROM bot_symbols s
-            LEFT JOIN trades t ON t.bot_id = s.bot_id AND t.symbol = s.symbol AND t.status = 'open'
-            WHERE s.bot_id = %s
-            GROUP BY s.id
-        """, (bot['id'],))
-        if not symbols:
-            await update.message.reply_text(f"❌ У бота {bot_name} нет активных символов")
-            return
-        message = f"<b>📋 Символы бота {bot_name}</b>\n\n"
-        for s in symbols:
-            status_emoji = "🟢" if s['is_active'] else "🔴"
-            message += f"{status_emoji} <b>{s['symbol']}</b> - позиций: {s['open_positions'] or 0}\n"
-        await update.message.reply_text(message, parse_mode="HTML")
-    
-    async def cmd_add_symbol(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        args = context.args
-        if len(args) < 2:
-            await update.message.reply_text("❌ Формат: /add_symbol ETHUSDT SOLUSDT", parse_mode="HTML")
-            return
-        bot_name = args[0].upper()
-        new_symbol = args[1].upper()
-        bot = db.get_bot_by_name(bot_name)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
-            return
-        existing = db.execute_query("SELECT id FROM bot_symbols WHERE bot_id = %s AND symbol = %s", (bot['id'], new_symbol))
-        if existing:
-            await update.message.reply_text(f"⚠️ Символ {new_symbol} уже есть")
-            return
-        default = db.execute_query("SELECT strategy_params, risk_params FROM bot_symbols WHERE bot_id = %s LIMIT 1", (bot['id'],))
-        if default:
-            strategy_params = default[0]['strategy_params']
-            risk_params = default[0]['risk_params']
-        else:
-            strategy_params = json.dumps({'short_ma': 6, 'long_ma': 49})
-            risk_params = json.dumps({'max_positions': 1})
-        db.execute_update("INSERT INTO bot_symbols (bot_id, symbol, strategy_params, risk_params, is_active) VALUES (%s, %s, %s, %s, 1)", (bot['id'], new_symbol, strategy_params, risk_params))
-        await update.message.reply_text(f"✅ Символ {new_symbol} добавлен. Выполните /reload {bot_name}")
-    
-    async def cmd_remove_symbol(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        args = context.args
-        if len(args) < 2:
-            await update.message.reply_text("❌ Формат: /remove_symbol ETHUSDT SOLUSDT", parse_mode="HTML")
-            return
-        bot_name = args[0].upper()
-        symbol = args[1].upper()
-        bot = db.get_bot_by_name(bot_name)
-        if not bot:
-            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
-            return
-        open_positions = db.execute_query("SELECT id FROM trades WHERE bot_id = %s AND symbol = %s AND status = 'open'", (bot['id'], symbol))
-        if open_positions:
-            await update.message.reply_text(f"⚠️ Нельзя удалить {symbol}: есть открытые позиции")
-            return
-        db.execute_update("UPDATE bot_symbols SET is_active = 0 WHERE bot_id = %s AND symbol = %s", (bot['id'], symbol))
-        await update.message.reply_text(f"✅ Символ {symbol} деактивирован. Выполните /reload {bot_name}")
-    
-    async def cmd_reload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        args = context.args
-        if not args:
-            await update.message.reply_text("❌ Укажите бота. Пример: /reload ETHUSDT", parse_mode="HTML")
-            return
-        bot_name = args[0].upper()
-        await update.message.reply_text(f"🔄 Запрос на перезагрузку {bot_name} отправлен. Для применения перезапустите процесс: sudo systemctl restart bot-{bot_name.lower()}")
-    
-    async def cmd_status_extended(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await self._send_typing(update, context)
-        bots = db.get_all_active_bots()
-        if not bots:
-            await update.message.reply_text("❌ Нет активных ботов")
-            return
-        message = "<b>📊 СТАТУС БОТОВ (расширенный)</b>\n\n"
-        for bot in bots:
-            symbols = db.execute_query("SELECT symbol FROM bot_symbols WHERE bot_id = %s AND is_active = 1", (bot['id'],))
-            if not symbols:
-                symbols = [{'symbol': bot['name']}]
-            open_trades = db.get_open_trades(bot['id'])
-            status_emoji = "🟢" if bot['status'] == 'active' else "🔴"
-            message += f"{status_emoji} <b>{bot['name']}</b>\n"
-            message += f"   Символы: {', '.join([s['symbol'] for s in symbols])}\n"
-            message += f"   Позиций: {len(open_trades)}\n\n"
-        await update.message.reply_text(message, parse_mode="HTML")
     
     async def cmd_help_extended(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
         help_text = """
-<b>🤖 НОВЫЕ КОМАНДЫ (СПРИНТ 1)</b>
+<b>🤖 НОВЫЕ КОМАНДЫ ОПТИМИЗАЦИИ</b>
 
-/metrics ETHUSDT - метрики бота
-/symbols ETHUSDT - список символов
-/add_symbol ETHUSDT SOLUSDT - добавить символ
-/remove_symbol ETHUSDT SOLUSDT - удалить символ
-/reload ETHUSDT - перезагрузить параметры
-/status_ext - расширенный статус
+/optimize ETHUSDT SOLUSDT - ручной запуск оптимизации
+/optimize_status - показать ожидающие оптимизации
+/apply_params 42 - применить параметры
+/reject_params 42 - отклонить предложение
 
-<b>Примеры:</b>
-<code>/metrics ETHUSDT</code>
-<code>/symbols ETHUSDT</code>
-<code>/add_symbol ETHUSDT SOLUSDT</code>
+<b>Пример:</b>
+1. /optimize ETHUSDT ETHUSDT
+2. Ждёте результат (1-2 минуты)
+3. /apply_params 123
         """
         await update.message.reply_text(help_text, parse_mode="HTML")
     
-    # ==================== ОСТАЛЬНЫЕ КОМАНДЫ ====================
+    # ==================== ИНФОРМАЦИОННЫЕ КОМАНДЫ ====================
     
     async def cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
-        await update.message.reply_text("✅ Бот работает. Используйте /help_ext для новых команд.")
+        await update.message.reply_text("✅ Бот работает. Используйте /help")
+    
+    async def cmd_status_extended(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        await update.message.reply_text("📊 Расширенный статус в разработке")
     
     async def cmd_positions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
-        open_trades = db.get_open_trades()
-        if not open_trades:
-            await update.message.reply_text("📭 Нет открытых позиций")
-            return
-        message = "<b>📈 ОТКРЫТЫЕ ПОЗИЦИИ</b>\n\n"
-        for trade in open_trades:
-            message += f"{trade['symbol']}: {trade['side']} @ {float(trade['entry_price']):.4f}\n"
-        await update.message.reply_text(message, parse_mode="HTML")
+        await update.message.reply_text("📈 Список позиций в разработке")
     
     async def cmd_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
@@ -369,45 +209,242 @@ class TelegramCommander:
             return
         await update.message.reply_text("📊 Используйте /metrics для детальной статистики")
     
-    async def cmd_close(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ==================== КОМАНДЫ МЕТРИК ====================
+    
+    async def cmd_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
-        await update.message.reply_text("❌ Команда в разработке")
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите бота. Пример: /metrics ETHUSDT")
+            return
+        bot_name = args[0].upper()
+        bot = db.get_bot_by_name(bot_name)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
+            return
+        result = db.execute_query("""
+            SELECT * FROM bot_performance_metrics 
+            WHERE bot_id = %s ORDER BY metric_date DESC LIMIT 1
+        """, (bot['id'],))
+        if not result:
+            await update.message.reply_text(f"📊 Нет данных по метрикам для {bot_name}")
+            return
+        m = result[0]
+        await update.message.reply_text(
+            f"📊 Метрики {bot_name}:\n"
+            f"Win Rate: {m['win_rate']:.1f}%\n"
+            f"Max Drawdown: {m['max_drawdown']:.2f}%\n"
+            f"Sharpe: {m['sharpe_ratio']:.2f}\n"
+            f"Profit Factor: {m['profit_factor']:.2f}\n"
+            f"Сделок: {m['total_trades']}"
+        )
+    
+    async def cmd_symbols(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите бота")
+            return
+        bot_name = args[0].upper()
+        bot = db.get_bot_by_name(bot_name)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
+            return
+        symbols = db.execute_query(
+            "SELECT symbol FROM bot_symbols WHERE bot_id = %s AND is_active = 1",
+            (bot['id'],)
+        )
+        if not symbols:
+            await update.message.reply_text(f"❌ У бота {bot_name} нет символов")
+            return
+        await update.message.reply_text(f"📋 Символы {bot_name}: {', '.join([s['symbol'] for s in symbols])}")
+    
+    async def cmd_add_symbol(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        await update.message.reply_text("⏳ В разработке")
+    
+    async def cmd_remove_symbol(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        await update.message.reply_text("⏳ В разработке")
+    
+    async def cmd_reload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        await update.message.reply_text("🔄 Перезагрузка параметров...")
+    
+    # ==================== КОМАНДЫ ОПТИМИЗАЦИИ ====================
+    
+    async def cmd_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text("❌ Формат: /optimize ETHUSDT SOLUSDT")
+            return
+        
+        bot_name = args[0].upper()
+        symbol = args[1].upper()
+        
+        bot = db.get_bot_by_name(bot_name)
+        if not bot:
+            await update.message.reply_text(f"❌ Бот {bot_name} не найден")
+            return
+        
+        await update.message.reply_text(
+            f"🚀 Запущена оптимизация для {symbol}\n"
+            f"Это может занять 1-2 минуты..."
+        )
+        
+        script_path = "/home/trader/trading_bots_v2/src/optimizer/param_optimizer.py"
+        
+        try:
+            result = subprocess.run(
+                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20"],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            if result.returncode == 0:
+                opt_result = json.loads(result.stdout)
+                best_params = opt_result.get('best_params', {})
+                best_sharpe = opt_result.get('best_sharpe', 0)
+                
+                message = f"""✅ Оптимизация для {symbol} завершена!
+
+<b>Лучшие параметры:</b>
+{self._format_params(best_params)}
+
+<b>Ожидаемый Sharpe:</b> {best_sharpe:.4f}
+
+Для применения: /apply_params {opt_result.get('history_id')}
+Для отклонения: /reject_params {opt_result.get('history_id')}
+"""
+                await update.message.reply_text(message, parse_mode="HTML")
+            else:
+                await update.message.reply_text(f"❌ Ошибка: {result.stderr[:200]}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ошибка: {e}")
+    
+    async def cmd_optimize_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        
+        from src.optimizer.parameter_updater import get_pending_optimizations
+        
+        pending = get_pending_optimizations()
+        
+        if not pending:
+            await update.message.reply_text("📭 Нет ожидающих оптимизаций")
+            return
+        
+        message = "<b>📊 ОЖИДАЮЩИЕ ОПТИМИЗАЦИИ</b>\n\n"
+        for p in pending[:5]:
+            message += f"🆔 #{p['id']} - {p['bot_name']} {p['symbol']}\n"
+            message += f"   Sharpe: {p['best_sharpe']:.4f}\n"
+            message += f"   /apply_params {p['id']}\n\n"
+        
+        await update.message.reply_text(message, parse_mode="HTML")
+    
+    async def cmd_apply_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите ID: /apply_params 42")
+            return
+        
+        try:
+            history_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("❌ ID должен быть числом")
+            return
+        
+        from src.optimizer.parameter_updater import update_params, get_pending_optimizations
+        
+        pending = get_pending_optimizations()
+        target = None
+        for p in pending:
+            if p['id'] == history_id:
+                target = p
+                break
+        
+        if not target:
+            await update.message.reply_text(f"❌ Оптимизация #{history_id} не найдена")
+            return
+        
+        success = update_params(
+            target['bot_id'],
+            target['symbol'],
+            target['best_params'],
+            history_id
+        )
+        
+        if success:
+            await update.message.reply_text(
+                f"✅ Параметры для {target['symbol']} обновлены!\n"
+                f"Для применения перезапустите бота: sudo systemctl restart bot-{target['bot_name'].lower()}"
+            )
+        else:
+            await update.message.reply_text(f"❌ Ошибка применения параметров")
+    
+    async def cmd_reject_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not await self._check_auth(update):
+            return
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите ID: /reject_params 42")
+            return
+        
+        try:
+            history_id = int(args[0])
+        except ValueError:
+            await update.message.reply_text("❌ ID должен быть числом")
+            return
+        
+        from src.optimizer.parameter_updater import reject_params
+        
+        reason = " ".join(args[1:]) if len(args) > 1 else "Отклонено пользователем"
+        success = reject_params(history_id, reason)
+        
+        if success:
+            await update.message.reply_text(f"✅ Оптимизация #{history_id} отклонена")
+        else:
+            await update.message.reply_text(f"❌ Ошибка")
+    
+    # ==================== ЗАГЛУШКИ ДЛЯ ОСТАЛЬНЫХ КОМАНД ====================
+    
+    async def cmd_close(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_close_all(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_open(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_stop_all(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_start_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def cmd_start_all(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not await self._check_auth(update):
-            return
-        await update.message.reply_text("❌ Команда в разработке")
+        await update.message.reply_text("⏳ В разработке")
     
     async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        await query.edit_message_text("✅ Операция выполнена")
+        await query.edit_message_text("✅ Выполнено")
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Ошибка: {context.error}")
