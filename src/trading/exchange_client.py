@@ -82,7 +82,7 @@ class ExchangeClient:
         self._last_request_time = 0
         self._min_request_interval = 0.1  # 100 мс между запросами
         
-        print(f"✅ ExchangeClient: {exchange_name} (mainnet) инициализирован")
+        pass
     
     def _create_client(self):
         """Создание клиента для конкретной биржи (всегда mainnet)"""
@@ -298,7 +298,7 @@ class ExchangeClient:
                 for col in ['open', 'high', 'low', 'close', 'volume']:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
                 
-                df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='s')
+                df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms')
                 df = df.set_index('timestamp')
                 df = df[::-1]  # Переворачиваем (от старых к новым)
                 

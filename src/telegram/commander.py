@@ -130,7 +130,7 @@ class TelegramCommander:
             f"/regime ETHUSDT - режим рынка\n"
             f"/risk_status ETHUSDT - статус риска\n\n"
             f"🔧 Управление:\n"
-            f"/optimize ETHUSDT SOLUSDT - оптимизация параметров\n"
+            f"/optimize ETHUSDT ETHUSDT - оптимизация параметров\n"
             f"/optimize_status - статус оптимизаций\n"
             f"/apply_params 42 - применить параметры\n"
             f"/reset_risk ETHUSDT - сбросить риск\n\n"
@@ -157,7 +157,7 @@ class TelegramCommander:
 
 🔧 ОПТИМИЗАЦИЯ ПАРАМЕТРОВ
 --------------------------------------------------
-/optimize ETHUSDT SOLUSDT - запустить оптимизацию для символа
+/optimize ETHUSDT ETHUSDT - запустить оптимизацию
 /optimize_status - показать ожидающие оптимизации
 /apply_params 42 - применить найденные параметры
 /reject_params 42 - отклонить предложение
@@ -168,16 +168,12 @@ class TelegramCommander:
 📈 СРАВНЕНИЕ СТРАТЕГИЙ
 --------------------------------------------------
 /compare_strategies ETHUSDT - сравнить 3 стратегии
-   • out-of-sample проверка (80%% train / 20%% test)
-   • overfit_ratio < 1.5 — параметры хорошие
 
 ==================================================
 
 🛡️ УПРАВЛЕНИЕ РИСКАМИ
 --------------------------------------------------
 /reset_risk ETHUSDT - сбросить risk_multiplier в 1.0
-   • Автоматическое снижение риска при Warning (x0.5)
-   • Полная остановка при Halt (x0.0)
 
 ==================================================
 
@@ -382,7 +378,7 @@ class TelegramCommander:
             return
         args = context.args
         if len(args) < 2:
-            await update.message.reply_text("❌ Формат: /optimize ETHUSDT SOLUSDT")
+            await update.message.reply_text("❌ Формат: /optimize BOT_NAME SYMBOL\nПример: /optimize ETHUSDT ETHUSDT")
             return
         bot_name = args[0].upper()
         symbol = args[1].upper()
@@ -394,20 +390,28 @@ class TelegramCommander:
         script_path = "/home/trader/trading_bots_v2/src/optimizer/param_optimizer.py"
         try:
             result = subprocess.run(
-                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20"],
-                capture_output=True, text=True, timeout=120
+                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20", "--days", "30"],
+                capture_output=True, text=True, timeout=180
             )
-            if result.returncode == 0:
-                opt_result = json.loads(result.stdout)
-                best_params = opt_result.get('best_params', {})
-                best_sharpe = opt_result.get('train_sharpe', 0)
-                message = f"✅ Оптимизация для {symbol} завершена!\n"
-                message += f"Лучшие параметры: {self._format_params(best_params)}\n"
-                message += f"Ожидаемый Sharpe: {best_sharpe:.4f}\n"
-                message += f"Для применения: /apply_params {opt_result.get('history_id')}"
-                await update.message.reply_text(message)
+            if result.returncode == 0 and result.stdout.strip():
+                try:
+                    opt_result = json.loads(result.stdout)
+                    best_params = opt_result.get('best_params', {})
+                    best_sharpe = opt_result.get('train_sharpe', 0)
+                    history_id = opt_result.get('history_id')
+                    message = f"✅ Оптимизация для {symbol} завершена!\n\n"
+                    message += f"Лучшие параметры: {self._format_params(best_params)}\n"
+                    message += f"Ожидаемый Sharpe: {best_sharpe:.4f}\n"
+                    if history_id:
+                        message += f"Для применения: /apply_params {history_id}"
+                    await update.message.reply_text(message)
+                except json.JSONDecodeError as e:
+                    await update.message.reply_text(f"❌ Ошибка парсинга: {e}\nВывод: {result.stdout[:200]}")
             else:
-                await update.message.reply_text(f"❌ Ошибка: {result.stderr[:200]}")
+                error_msg = result.stderr[:300] if result.stderr else "Неизвестная ошибка"
+                await update.message.reply_text(f"❌ Ошибка оптимизации: {error_msg}")
+        except subprocess.TimeoutExpired:
+            await update.message.reply_text("❌ Таймаут оптимизации (более 3 минут)")
         except Exception as e:
             await update.message.reply_text(f"❌ Ошибка: {e}")
     

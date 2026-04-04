@@ -31,7 +31,7 @@ class Database:
         try:
             conn = self._get_connection()
             conn.close()
-            print("✅ Database: успешное подключение")
+            pass
         except Exception as e:
             print(f"❌ Database: ошибка подключения: {e}")
     

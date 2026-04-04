@@ -7,6 +7,9 @@ import sys
 import json
 import logging
 import optuna
+
+# Подавляем вывод логов Optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -63,7 +66,7 @@ class ParamOptimizer:
     def get_historical_data(self, days: int = 90) -> pd.DataFrame:
         """Загрузить исторические данные"""
         limit = days * 24 * 12
-        interval = '5m'
+        interval = '5'
         logger.info(f"📥 Загрузка данных для {self.symbol} за {days} дней...")
         df = self.exchange.get_klines(self.symbol, interval, limit)
         if df is None or df.empty:
