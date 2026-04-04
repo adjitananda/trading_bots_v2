@@ -56,6 +56,8 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("balance", self.cmd_balance))
         self.app.add_handler(CommandHandler("metrics", self.cmd_metrics))
         self.app.add_handler(CommandHandler("symbols", self.cmd_symbols))
+        self.app.add_handler(CommandHandler("params", self.cmd_params))
+        self.app.add_handler(CommandHandler("params", self.cmd_params))
         
         # Команды Market Regime
         self.app.add_handler(CommandHandler("regime", self.cmd_regime))
@@ -250,6 +252,75 @@ class TelegramCommander:
             f"Сделок: {m['total_trades']}"
         )
     
+    
+    async def cmd_params(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Показать текущие параметры стратегии для символа. Формат: /params ETHUSDT"""
+        if not await self._check_auth(update):
+            return
+        
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /params ETHUSDT")
+            return
+        
+        symbol = args[0].upper()
+        
+        result = db.execute_query("""
+            SELECT bs.bot_id, b.name as bot_name, bs.strategy_params, bs.risk_params, bs.risk_multiplier
+            FROM bot_symbols bs
+            JOIN bots b ON bs.bot_id = b.id
+            WHERE bs.symbol = %s AND bs.is_active = 1
+        """, (symbol,))
+        
+        if not result:
+            await update.message.reply_text(f"❌ Символ {symbol} не найден в активных ботах")
+            return
+        
+        row = result[0]
+        strategy_params = row["strategy_params"]
+        if isinstance(strategy_params, str):
+            import json
+            strategy_params = json.loads(strategy_params)
+        
+        risk_params = row["risk_params"]
+        if isinstance(risk_params, str):
+            import json
+            risk_params = json.loads(risk_params)
+        elif risk_params is None:
+            risk_params = {}
+        
+        risk_multiplier = row["risk_multiplier"] or 1.0
+        
+        msg = f"📊 Текущие параметры {symbol}\n"
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        msg += "📈 Параметры стратегии:\n"
+        for k, v in strategy_params.items():
+            if isinstance(v, float):
+                msg += f"   • {k}: {v:.2f}\n"
+            else:
+                msg += f"   • {k}: {v}\n"
+        
+        if risk_params:
+            msg += "\n🛡️ Риск-параметры:\n"
+            for k, v in risk_params.items():
+                msg += f"   • {k}: {v}\n"
+        
+        msg += f"\n⚠️ risk_multiplier: {risk_multiplier}\n"
+        
+        dd_result = db.execute_query("""
+            SELECT MAX(max_drawdown) as max_dd
+            FROM bot_performance_metrics
+            WHERE bot_id = %s AND symbol = %s
+            AND metric_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        """, (row["bot_id"], symbol))
+        
+        if dd_result and dd_result[0]["max_dd"]:
+            msg += f"📊 Max Drawdown (30d): {dd_result[0]['max_dd']:.1f}%\n"
+        
+        await update.message.reply_text(msg)
+
     async def cmd_symbols(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await self._check_auth(update):
             return
