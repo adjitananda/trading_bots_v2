@@ -2,6 +2,7 @@
 """
 Базовый класс для торговых ботов.
 Поддерживает multi-coin режим (один бот → много символов).
+С поддержкой reload_flag для динамического обновления параметров.
 """
 
 import time
@@ -49,10 +50,13 @@ class TradingBot:
         if not self.bot_id:
             raise ValueError(f"Бот {bot_name} не найден в БД")
         
-        # Инициализация компонентов
-        self.exchange = ExchangeClient()
-        self.order_manager = OrderManager(self.bot_id, self.bot_name)
-        self.position_tracker = PositionTracker(self.bot_id)
+        # Инициализация биржи
+        exchange_name = config.get('exchange', 'bybit')
+        self.exchange = ExchangeClient(exchange_name)
+        
+        # Менеджеры с передачей exchange_client
+        self.order_manager = OrderManager(self.exchange, self.bot_id, self.bot_name)
+        self.position_tracker = PositionTracker(self.exchange, self.bot_id, self.bot_name)
         
         # Multi-coin: список символов и их параметров
         self.symbols: List[str] = []
@@ -112,9 +116,10 @@ class TradingBot:
         
         if symbols_data:
             # Multi-coin режим
+            new_symbols = []
             for row in symbols_data:
                 symbol = row['symbol']
-                self.symbols.append(symbol)
+                new_symbols.append(symbol)
                 
                 # Параметры стратегии
                 strategy_params = row['strategy_params']
@@ -137,15 +142,17 @@ class TradingBot:
                 
                 # Создаём стратегию
                 strategy_name = self.config.get('strategy', 'ma_crossover')
-                try:
-                    self.strategies[symbol] = StrategyFactory.create_strategy(
-                        strategy_name,
-                        strategy_params
-                    )
-                except Exception as e:
-                    logger.error(f"❌ Ошибка создания стратегии для {symbol}: {e}")
-                    self.strategies[symbol] = None
+                if symbol not in self.strategies:
+                    try:
+                        self.strategies[symbol] = StrategyFactory.create_strategy(
+                            strategy_name,
+                            strategy_params
+                        )
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка создания стратегии для {symbol}: {e}")
+                        self.strategies[symbol] = None
             
+            self.symbols = new_symbols
             logger.info(f"📊 Загружено {len(self.symbols)} символов из bot_symbols")
         else:
             # Старый режим: один символ из конфига
@@ -178,236 +185,220 @@ class TradingBot:
                 self.symbols = []
     
     def reload_params(self):
-        """
-        Перезагрузить параметры из БД без перезапуска бота.
-        Полезно при добавлении/удалении символов.
-        """
+        """Перезагрузить параметры из БД без перезапуска бота."""
         logger.info("🔄 Перезагрузка параметров...")
-        
-        # Сохраняем старые символы
         old_symbols = self.symbols.copy()
-        
-        # Очищаем текущие данные
         self.symbols = []
         self.symbol_params = {}
-        self.strategies = {}
-        
-        # Загружаем заново
         self._load_symbols()
         
-        # Логируем изменения
         added = set(self.symbols) - set(old_symbols)
         removed = set(old_symbols) - set(self.symbols)
-        
         if added:
             logger.info(f"➕ Добавлены символы: {added}")
         if removed:
             logger.info(f"➖ Удалены символы: {removed}")
-        
         logger.info(f"✅ Перезагрузка завершена. Теперь управляет: {self.symbols}")
     
     def get_signal(self, symbol: str) -> str:
-        """
-        Получить торговый сигнал для конкретного символа.
-        
-        Returns:
-            'up' - сигнал на покупку
-            'down' - сигнал на продажу
-            'none' - нет сигнала
-        """
+        """Получить торговый сигнал для конкретного символа."""
         strategy = self.strategies.get(symbol)
         if not strategy:
             return 'none'
         
         try:
-            # Получаем свечи
             interval = f"{self.config.get('timeframe', 5)}m"
             df = self.exchange.get_klines(symbol, interval, limit=100)
-            
             if df is None or df.empty:
                 return 'none'
-            
-            # Получаем сигнал от стратегии
-            signal = strategy.get_signal(df)
-            return signal
-            
+            return strategy.get_signal(df)
         except Exception as e:
             logger.error(f"❌ Ошибка получения сигнала для {symbol}: {e}")
             return 'none'
     
     def check_risk_limits(self, symbol: str) -> bool:
-        """
-        Проверить риск-лимиты для символа.
-        
-        Returns:
-            True если можно торговать, False если лимиты превышены
-        """
+        """Проверить риск-лимиты для символа."""
         risk_params = self.symbol_params.get(symbol, {}).get('risk_params', {})
-        
-        # Максимальное количество позиций
         max_positions = risk_params.get('max_positions', self.config.get('max_positions', 1))
-        open_positions = len(self.position_tracker.get_open_positions(symbol))
-        
+        open_positions = len(self.position_tracker.get_current_positions(symbol))
         if open_positions >= max_positions:
-            logger.debug(f"⚠️ {symbol}: достигнут лимит позиций ({open_positions}/{max_positions})")
+            logger.debug(f"⚠️ {symbol}: лимит позиций ({open_positions}/{max_positions})")
             return False
         
-        # Максимальный дневной убыток
         max_daily_loss = risk_params.get('max_daily_loss', self.config.get('max_daily_loss'))
         if max_daily_loss:
-            today_pnl = self.position_tracker.get_today_pnl(symbol)
+            today_pnl = self.position_tracker.get_daily_pnl(symbol) if hasattr(self.position_tracker, 'get_daily_pnl') else 0
             if today_pnl <= -max_daily_loss:
-                logger.warning(f"⚠️ {symbol}: превышен дневной лимит убытка ({today_pnl:.2f} <= -{max_daily_loss})")
+                logger.warning(f"⚠️ {symbol}: дневной лимит убытка ({today_pnl:.2f})")
                 return False
-        
         return True
     
     def execute_signal(self, symbol: str, signal: str):
-        """
-        Выполнить торговый сигнал.
-        """
+        """Выполнить торговый сигнал."""
         if signal == 'up':
-            # Проверяем риск-лимиты
             if not self.check_risk_limits(symbol):
                 return
-            
-            # Получаем текущую цену
             current_price = self.exchange.get_current_price(symbol)
             if not current_price:
                 logger.error(f"❌ Не удалось получить цену для {symbol}")
                 return
             
-            # Параметры сделки
             qty = self.config.get('qty', 10)
             tp_percent = self.config.get('tp', 0.05)
             sl_percent = self.config.get('sl', 0.02)
             
-            tp_price = current_price * (1 + tp_percent)
-            sl_price = current_price * (1 - sl_percent)
-            
-            # Размещаем ордер
             order = self.order_manager.place_order(
-                symbol=symbol,
-                side='BUY',
-                quantity=qty,
-                order_type='market',
-                tp_price=tp_price,
-                sl_price=sl_price,
-                tp_percent=tp_percent,
-                sl_percent=sl_percent
+                symbol=symbol, side='BUY', quantity=qty, order_type='market',
+                tp_price=current_price * (1 + tp_percent),
+                sl_price=current_price * (1 - sl_percent)
             )
-            
             if order and order.get('success'):
                 logger.info(f"✅ {symbol}: открыта позиция BUY по {current_price}")
                 self.stats['total_trades'] += 1
-            
         elif signal == 'down':
-            # Проверяем, есть ли открытые позиции для закрытия
-            open_positions = self.position_tracker.get_open_positions(symbol)
-            if open_positions:
-                for pos in open_positions:
-                    self.order_manager.close_position(pos['trade_id'])
-                    logger.info(f"🔒 {symbol}: закрыта позиция по сигналу SELL")
-        
+            positions = self.position_tracker.get_current_positions(symbol)
+            for pos in positions:
+                self.order_manager.close_position(pos['trade_id'])
+                logger.info(f"🔒 {symbol}: закрыта позиция")
         self.stats['total_signals'] += 1
     
     def run_cycle(self):
         """Один цикл торговли"""
         for symbol in self.symbols:
             try:
-                # Получаем сигнал
                 signal = self.get_signal(symbol)
-                
-                # Выполняем сигнал
                 if signal != 'none':
                     self.execute_signal(symbol, signal)
-                    
             except Exception as e:
                 logger.error(f"❌ Ошибка в цикле для {symbol}: {e}")
                 self.stats['last_error'] = str(e)
     
     def log_status(self):
         """Логирование статуса бота"""
-        positions = self.position_tracker.get_all_open_positions()
-        total_pnl = sum(p.get('pnl', 0) for p in positions)
-        
-        logger.info(f"📊 Статус {self.bot_name}:")
-        logger.info(f"   Символы: {self.symbols}")
-        logger.info(f"   Открытых позиций: {len(positions)}")
-        logger.info(f"   Текущий PnL: {total_pnl:.2f} USDT")
-        logger.info(f"   Всего сигналов: {self.stats['total_signals']}")
-        logger.info(f"   Всего сделок: {self.stats['total_trades']}")
+        positions = self.position_tracker.get_current_positions()
+        total_pnl = sum(p.get('unrealised_pnl', 0) for p in positions)
+        logger.info(f"📊 Статус {self.bot_name}: символов={len(self.symbols)}, позиций={len(positions)}, PnL={total_pnl:.2f}")
     
     def take_snapshot(self):
         """Сохранение снимка состояния в БД"""
         try:
-            positions = self.position_tracker.get_all_open_positions()
-            total_pnl = sum(p.get('pnl', 0) for p in positions)
-            
-            # Получаем баланс
+            positions = self.position_tracker.get_current_positions()
+            total_pnl = sum(p.get('unrealised_pnl', 0) for p in positions)
             balance = self.exchange.get_balance()
-            
             db.execute_update("""
                 INSERT INTO snapshots (bot_id, exchange_id, timestamp, balance, total_pnl, open_positions_count)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                self.bot_id,
-                1,  # exchange_id для Bybit
-                now_local(),
-                balance,
-                total_pnl,
-                len(positions)
-            ))
-            logger.debug(f"📸 Снимок сохранён: баланс={balance}, PnL={total_pnl}")
+            """, (self.bot_id, self.exchange.exchange_id, now_local(), balance, total_pnl, len(positions)))
         except Exception as e:
             logger.error(f"❌ Ошибка сохранения снимка: {e}")
     
-    def run(self):
-        # Проверяем флаги перезагрузки
-        self.check_reload_flag()
-        """Основной цикл бота"""
-        logger.info(f"🚀 Запуск бота {self.bot_name}")
-        
-        # Отправляем уведомление о запуске
-        notifier.send_bot_startup(self.bot_name, self.config, self.config.get('strategy', 'unknown'))
-        
-        # Обновляем статус в БД
-        db.execute_update(
-            "UPDATE bots SET status = 'active', started_at = %s WHERE id = %s",
-            (now_local(), self.bot_id)
+    # ==================== RELOAD_FLAG ПРОВЕРКА ====================
+    
+    def check_reload_flag(self, symbol: str) -> bool:
+        """Проверить, нужно ли перезагрузить параметры для символа."""
+        result = db.execute_query(
+            "SELECT reload_flag FROM bot_symbols WHERE bot_id = %s AND symbol = %s",
+            (self.bot_id, symbol)
         )
+        return result and result[0].get('reload_flag', 0) == 1
+    
+    def reload_symbol_params(self, symbol: str):
+        """Перезагрузить параметры для конкретного символа из БД."""
+        result = db.execute_query(
+            "SELECT strategy_params, risk_params FROM bot_symbols WHERE bot_id = %s AND symbol = %s",
+            (self.bot_id, symbol)
+        )
+        if result:
+            row = result[0]
+            strategy_params = row['strategy_params']
+            if isinstance(strategy_params, str):
+                import json
+                strategy_params = json.loads(strategy_params)
+            
+            risk_params = row['risk_params']
+            if isinstance(risk_params, str):
+                import json
+                risk_params = json.loads(risk_params)
+            elif risk_params is None:
+                risk_params = {}
+            
+            self.symbol_params[symbol] = {'strategy_params': strategy_params, 'risk_params': risk_params}
+            
+            if symbol in self.strategies and self.strategies[symbol]:
+                try:
+                    self.strategies[symbol].params = strategy_params
+                    logger.info(f"✅ Стратегия для {symbol} обновлена")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка обновления стратегии: {e}")
+            
+            db.execute_update(
+                "UPDATE bot_symbols SET reload_flag = 0 WHERE bot_id = %s AND symbol = %s",
+                (self.bot_id, symbol)
+            )
+            logger.info(f"✅ Параметры для {symbol} перезагружены")
+            try:
+                notifier.send_message(f"🔄 Параметры {symbol} обновлены: {strategy_params}")
+            except:
+                pass
+    
+    def get_risk_multiplier(self, symbol: str) -> float:
+        """Получить текущий множитель риска для символа."""
+        result = db.execute_query(
+            "SELECT risk_multiplier FROM bot_symbols WHERE bot_id = %s AND symbol = %s",
+            (self.bot_id, symbol)
+        )
+        if result:
+            return float(result[0].get('risk_multiplier', 1.0))
+        return 1.0
+    
+    # ==================== ОСНОВНОЙ ЦИКЛ ====================
+    
+    def run(self):
+        """Основной цикл бота с поддержкой reload_flag и risk_multiplier"""
+        logger.info(f"🚀 Запуск бота {self.bot_name}")
+        notifier.send_bot_startup(self.bot_name, self.config, self.config.get('strategy', 'unknown'))
+        db.execute_update("UPDATE bots SET status = 'active', started_at = %s WHERE id = %s", (now_local(), self.bot_id))
         
         try:
             while self.running:
                 current_time = time.time()
                 
-                # Основной торговый цикл
-                self.run_cycle()
+                for symbol in self.symbols:
+                    try:
+                        # 1. Проверка reload_flag
+                        if self.check_reload_flag(symbol):
+                            self.reload_symbol_params(symbol)
+                        
+                        # 2. Проверка risk_multiplier
+                        if self.get_risk_multiplier(symbol) <= 0:
+                            logger.debug(f"⏸️ Торговля для {symbol} остановлена (risk_multiplier=0)")
+                            continue
+                        
+                        # 3. Сигнал и исполнение
+                        signal = self.get_signal(symbol)
+                        if signal != 'none':
+                            self.execute_signal(symbol, signal)
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка для {symbol}: {e}")
                 
-                # Периодический лог статуса
-                if current_time - self.last_status_log >= self.intervals['status_log']:
+                if current_time - self.last_status_log >= self.intervals.get('status_log', 300):
                     self.log_status()
                     self.last_status_log = current_time
-                
-                # Периодическая проверка рисков
-                if current_time - self.last_risk_check >= self.intervals['risk_check']:
-                    # Проверка рисков для всех символов
+                if current_time - self.last_risk_check >= self.intervals.get('risk_check', 60):
                     for symbol in self.symbols:
                         self.check_risk_limits(symbol)
                     self.last_risk_check = current_time
-                
-                # Периодический снимок состояния
-                if current_time - self.last_snapshot >= self.intervals['snapshot']:
+                if current_time - self.last_snapshot >= self.intervals.get('snapshot', 3600):
                     self.take_snapshot()
                     self.last_snapshot = current_time
                 
-                # Пауза
-                time.sleep(self.intervals['main_loop'])
+                time.sleep(self.intervals.get('main_loop', 5))
                 
         except KeyboardInterrupt:
-            logger.info(f"🛑 Получен сигнал остановки для {self.bot_name}")
+            logger.info(f"🛑 Остановка {self.bot_name}")
         except Exception as e:
-            logger.error(f"❌ Критическая ошибка в {self.bot_name}: {e}")
+            logger.error(f"❌ Критическая ошибка: {e}")
             notifier.send_bot_error(self.bot_name, str(e))
         finally:
             self.stop()
@@ -416,128 +407,5 @@ class TradingBot:
         """Остановка бота"""
         self.running = False
         logger.info(f"🛑 Бот {self.bot_name} остановлен")
-        
-        # Обновляем статус в БД
-        db.execute_update(
-            "UPDATE bots SET status = 'stopped', stopped_at = %s WHERE id = %s",
-            (now_local(), self.bot_id)
-        )
-        
-        # Отправляем уведомление
+        db.execute_update("UPDATE bots SET status = 'stopped', stopped_at = %s WHERE id = %s", (now_local(), self.bot_id))
         notifier.send_bot_stop(self.bot_name)
-
-    # ==================== МЕТОДЫ ДЛЯ ПЕРЕЗАГРУЗКИ ПАРАМЕТРОВ ====================
-    
-    def check_reload_signal(self):
-        """
-        Проверить наличие сигнала на перезагрузку параметров.
-        Сигнал: файл /tmp/reload_{bot_id}_{symbol}.signal
-        """
-        for symbol in self.symbols:
-            signal_file = f"/tmp/reload_{self.bot_id}_{symbol}.signal"
-            if os.path.exists(signal_file):
-                try:
-                    with open(signal_file, 'r') as f:
-                        content = f.read()
-                    logger.info(f"📡 Получен сигнал перезагрузки для {symbol}: {content}")
-                    
-                    # Удаляем файл сигнала
-                    os.remove(signal_file)
-                    
-                    # Перезагружаем параметры
-                    self.reload_params()
-                    
-                    # Отправляем уведомление
-                    notifier.send_message(
-                        f"🔄 Бот {self.bot_name} перезагрузил параметры для {symbol}\n"
-                        f"Новые параметры применены."
-                    )
-                    
-                except Exception as e:
-                    logger.error(f"❌ Ошибка обработки сигнала: {e}")
-    
-    def run(self):
-        # Проверяем флаги перезагрузки
-        self.check_reload_flag()
-        """Основной цикл бота (обновлённая версия с проверкой сигналов)"""
-        logger.info(f"🚀 Запуск бота {self.bot_name}")
-        
-        notifier.send_bot_startup(self.bot_name, self.config, self.config.get('strategy', 'unknown'))
-        
-        db.execute_update(
-            "UPDATE bots SET status = 'active', started_at = %s WHERE id = %s",
-            (now_local(), self.bot_id)
-        )
-        
-        try:
-            while self.running:
-                current_time = time.time()
-                
-                # Проверяем сигналы перезагрузки
-                self.check_reload_signal()
-                
-                # Основной торговый цикл
-                self.run_cycle()
-                
-                # Периодический лог статуса
-                if current_time - self.last_status_log >= self.intervals['status_log']:
-                    self.log_status()
-                    self.last_status_log = current_time
-                
-                # Периодическая проверка рисков
-                if current_time - self.last_risk_check >= self.intervals['risk_check']:
-                    for symbol in self.symbols:
-                        self.check_risk_limits(symbol)
-                    self.last_risk_check = current_time
-                
-                # Периодический снимок состояния
-                if current_time - self.last_snapshot >= self.intervals['snapshot']:
-                    self.take_snapshot()
-                    self.last_snapshot = current_time
-                
-                time.sleep(self.intervals['main_loop'])
-                
-        except KeyboardInterrupt:
-            logger.info(f"🛑 Получен сигнал остановки для {self.bot_name}")
-        except Exception as e:
-            logger.error(f"❌ Критическая ошибка в {self.bot_name}: {e}")
-            notifier.send_bot_error(self.bot_name, str(e))
-        finally:
-            self.stop()
-
-    # ==================== ПРОВЕРКА RELOAD_FLAG ====================
-    
-    def check_reload_flag(self):
-        """
-        Проверить флаг перезагрузки в БД для каждого символа.
-        Если reload_flag = 1 → перезагрузить параметры из БД и сбросить флаг.
-        """
-        for symbol in self.symbols:
-            from src.optimizer.parameter_updater import check_reload_flag, clear_reload_flag
-            
-            if check_reload_flag(self.bot_id, symbol):
-                logger.info(f"🔄 Обнаружен сигнал перезагрузки для {symbol}")
-                
-                # Перезагружаем параметры
-                self._load_symbols()
-                
-                # Сбрасываем флаг
-                clear_reload_flag(self.bot_id, symbol)
-                
-                logger.info(f"✅ Параметры для {symbol} перезагружены")
-                
-                # Отправляем уведомление
-                try:
-                    from src.telegram.notifier import notifier
-                    notifier.send_message(
-                        f"🔄 Бот {self.bot_name} перезагрузил параметры для {symbol}"
-                    )
-                except:
-                    pass
-    
-    def get_risk_multiplier(self, symbol: str) -> float:
-        """
-        Получить текущий множитель риска для символа.
-        """
-        from src.optimizer.parameter_updater import get_risk_multiplier
-        return get_risk_multiplier(self.bot_id, symbol)

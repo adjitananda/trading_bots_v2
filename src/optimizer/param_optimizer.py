@@ -186,8 +186,11 @@ class ParamOptimizer:
                 test_returns = [t['pnl'] for t in test_trades]
                 test_sharpe = np.mean(test_returns) / np.std(test_returns) if np.std(test_returns) > 0 else 0
             else:
-                test_sharpe = -1.0
-            overfit_ratio = train_sharpe / test_sharpe if test_sharpe > 0 else 999.0
+                test_sharpe = None
+            if test_sharpe is None or test_sharpe <= 0:
+                overfit_ratio = None
+            else:
+                overfit_ratio = train_sharpe / test_sharpe
         except Exception as e:
             test_sharpe = -1.0
             overfit_ratio = 999.0
