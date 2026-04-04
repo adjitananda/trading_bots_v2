@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Бот для торговли SOLUSDT.
+Бот для торговли SOLUSD.
 Параметры из старой системы: MA (9, 29)
 """
 
@@ -16,13 +16,13 @@ os.environ["PYTHONPATH"] = str(Path(__file__).parent.parent) + ":" + os.environ.
 from src.core.base_bot import TradingBot
 
 
-class SOLUSDTBot(TradingBot):
-    """Бот для торговли SOLUSDT"""
+class SOLUSDBot(TradingBot):
+    """Бот для торговли SOLUSD"""
     
     def __init__(self):
         config = {
             'exchange': 'bybit',
-            'symbol': 'SOLUSDT',
+            'symbol': 'SOLUSD',
             
             # Торговые параметры (из старой системы)
             'tp': 0.050,  # 5.0%
@@ -54,11 +54,11 @@ class SOLUSDTBot(TradingBot):
             }
         }
         
-        super().__init__('SOLUSDT', config)
+        super().__init__('SOLUSD', config)
 
 
 if __name__ == "__main__":
-    bot = SOLUSDTBot()
+    bot = SOLUSDBot()
     try:
         bot.run()
     except KeyboardInterrupt:
