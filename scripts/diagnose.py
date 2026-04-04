@@ -81,8 +81,9 @@ def check_telegram_commands():
     
     content = commander_path.read_text()
     
-    commands = ['cmd_regime', 'cmd_risk_status', 'cmd_compare_strategies', 
-                'cmd_reset_risk', 'cmd_cancel_optimization']
+    commands = ['cmd_params', 'cmd_symbols', 'cmd_optimize', 'cmd_regime', 
+                'cmd_risk_status', 'cmd_compare_strategies', 'cmd_reset_risk', 
+                'cmd_cancel_optimization']
     
     found = [cmd for cmd in commands if cmd in content]
     missing = [cmd for cmd in commands if cmd not in content]
@@ -168,6 +169,111 @@ def check_optimization():
         logger.error(f"  ❌ Ошибка: {e}")
 
 
+def check_reload_flag():
+    """Проверка работы reload_flag"""
+    logger.info("\n🔄 ПРОВЕРКА RELOAD_FLAG:")
+    
+    result = db.execute_query("""
+        SELECT bot_id, symbol, reload_flag 
+        FROM bot_symbols 
+        WHERE is_active = 1 
+        LIMIT 1
+    """)
+    
+    if not result:
+        logger.warning("  ⚠️ Нет активных символов для проверки")
+        return
+    
+    bot_id = result[0]['bot_id']
+    symbol = result[0]['symbol']
+    
+    # Устанавливаем reload_flag=1
+    db.execute_update(
+        "UPDATE bot_symbols SET reload_flag = 1 WHERE bot_id = %s AND symbol = %s",
+        (bot_id, symbol)
+    )
+    
+    # Проверяем что установилось
+    check = db.execute_query(
+        "SELECT reload_flag FROM bot_symbols WHERE bot_id = %s AND symbol = %s",
+        (bot_id, symbol)
+    )
+    
+    if check and check[0]['reload_flag'] == 1:
+        logger.info(f"  ✅ reload_flag для {symbol} успешно установлен в 1")
+    else:
+        logger.error(f"  ❌ Не удалось установить reload_flag для {symbol}")
+    
+    # Сбрасываем обратно
+    db.execute_update(
+        "UPDATE bot_symbols SET reload_flag = 0 WHERE bot_id = %s AND symbol = %s",
+        (bot_id, symbol)
+    )
+    logger.info(f"  ✅ reload_flag для {symbol} сброшен в 0")
+
+
+def check_symbol_validation():
+    """Проверка валидации символов"""
+    logger.info("\n✅ ПРОВЕРКА ВАЛИДАЦИИ СИМВОЛОВ:")
+    
+    try:
+        from src.trading.exchange_client import ExchangeClient
+        from src.utils.symbol_validator import validate_symbol
+        
+        client = ExchangeClient("bybit")
+        
+        test_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSD"]
+        for sym in test_symbols:
+            valid, msg = validate_symbol(client, sym)
+            if valid:
+                logger.info(f"  ✅ {sym}: валиден")
+            else:
+                logger.warning(f"  ⚠️ {sym}: {msg[:60]}")
+                
+        # Проверка невалидного символа
+        valid, msg = validate_symbol(client, "INVALID_SYMBOL_XYZ")
+        if not valid:
+            logger.info(f"  ✅ Невалидный символ корректно отклонён: {msg[:60]}")
+        
+        logger.info("  ✅ Валидатор символов работает")
+    except Exception as e:
+        logger.error(f"  ❌ Ошибка валидатора: {e}")
+
+
+def check_overfit_interpretation():
+    """Проверка интерпретации overfit_ratio"""
+    logger.info("\n📊 ПРОВЕРКА OVERFIT_RATIO:")
+    
+    # Проверяем наличие колонок в optimization_history
+    result = db.execute_query("DESCRIBE optimization_history")
+    columns = [r['Field'] for r in result]
+    
+    required = ['test_sharpe', 'overfit_ratio']
+    for col in required:
+        if col in columns:
+            logger.info(f"  ✅ Колонка {col} существует")
+        else:
+            logger.warning(f"  ⚠️ Колонка {col} не найдена")
+    
+    # Проверяем нет ли значений 999
+    bad_values = db.execute_query(
+        "SELECT COUNT(*) as cnt FROM optimization_history WHERE overfit_ratio = 999"
+    )
+    if bad_values and bad_values[0]['cnt'] > 0:
+        logger.warning(f"  ⚠️ Найдено {bad_values[0]['cnt']} записей с overfit_ratio=999")
+    else:
+        logger.info("  ✅ Нет записей с некорректным overfit_ratio=999")
+    
+    # Проверяем наличие записей с test_sharpe = -1
+    bad_sharpe = db.execute_query(
+        "SELECT COUNT(*) as cnt FROM optimization_history WHERE test_sharpe = -1"
+    )
+    if bad_sharpe and bad_sharpe[0]['cnt'] > 0:
+        logger.warning(f"  ⚠️ Найдено {bad_sharpe[0]['cnt']} записей с test_sharpe = -1")
+    else:
+        logger.info("  ✅ Нет записей с test_sharpe = -1")
+
+
 def main():
     logger.info("=" * 50)
     logger.info("🔧 ДИАГНОСТИКА СИСТЕМЫ TRADING_BOTS_V2")
@@ -181,6 +287,9 @@ def main():
     check_risk_manager()
     check_strategies()
     check_optimization()
+    check_reload_flag()
+    check_symbol_validation()
+    check_overfit_interpretation()
     
     logger.info("\n" + "=" * 50)
     logger.info("✅ Диагностика завершена")

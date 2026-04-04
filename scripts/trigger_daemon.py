@@ -65,6 +65,30 @@ def run_optimization(bot_id: int, symbol: str, reasons: list):
 
 def main():
     """Основной цикл демона"""
+    # Проверка свежести метрик перед стартом
+    try:
+        from datetime import date
+        metrics_result = db.execute_query("SELECT MAX(metric_date) as last_date FROM bot_performance_metrics")
+        need_update = True
+        if metrics_result and metrics_result[0]['last_date']:
+            days_old = (date.today() - metrics_result[0]['last_date']).days
+            if days_old <= 2:
+                logger.info(f"📊 Метрики свежие (последние {days_old} дней)")
+                need_update = False
+            else:
+                logger.warning(f"⚠️ Метрики устарели ({days_old} дней)")
+        else:
+            logger.warning("⚠️ Метрики отсутствуют")
+        
+        if need_update:
+            logger.info("🔄 Запуск calculate_bot_metrics.py...")
+            import subprocess
+            script_path = Path(__file__).parent / 'calculate_bot_metrics.py'
+            subprocess.run([sys.executable, str(script_path)], timeout=120)
+            logger.info("✅ Метрики обновлены")
+    except Exception as e:
+        logger.error(f"Ошибка при проверке метрик: {e}")
+    
     logger.info("=" * 50)
     logger.info("🚀 TRIGGER DAEMON ЗАПУЩЕН")
     logger.info(f"   Интервал проверки: {CHECK_INTERVAL} сек (1 час)")
