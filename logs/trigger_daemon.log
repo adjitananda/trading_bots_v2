@@ -158,3 +158,39 @@
 2026-04-04 17:05:37,910 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
 
 2026-04-04 17:05:37,910 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-04 17:22:12,854 - __main__ - INFO - ==================================================
+2026-04-04 17:22:12,855 - __main__ - INFO - 🚀 TRIGGER DAEMON ЗАПУЩЕН
+2026-04-04 17:22:12,855 - __main__ - INFO -    Интервал проверки: 3600 сек (1 час)
+2026-04-04 17:22:12,855 - __main__ - INFO - ==================================================
+2026-04-04 17:22:12,855 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-04 17:22:12,866 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-04 17:22:12,875 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-04 17:22:12,880 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-04 17:22:12,886 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-04 17:22:12,896 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-04 17:22:12,901 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-04 17:22:12,905 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSDT
+2026-04-04 17:22:12,909 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-04 17:22:12,910 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-04 17:22:12,910 - __main__ - INFO -    📊 ETHUSDT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-04 17:22:12,910 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-04 17:22:12,910 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-04 17:22:12,939 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-04 17:22:12,939 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-04 18:22:12,940 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-04 18:22:12,955 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-04 18:22:12,960 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-04 18:22:12,966 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-04 18:22:12,973 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-04 18:22:12,984 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-04 18:22:12,990 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-04 18:22:12,994 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSDT
+2026-04-04 18:22:12,998 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-04 18:22:12,999 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-04 18:22:12,999 - __main__ - INFO -    📊 ETHUSDT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-04 18:22:12,999 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-04 18:22:12,999 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-04 18:22:13,041 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-04 18:22:13,041 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...

@@ -281,10 +281,25 @@ class ExchangeClient:
                     return None
                 
                 # Преобразуем в DataFrame
-                df = pd.DataFrame(result['list'])
-                df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+                data = result['list']
+                if not data:
+                    return None
+                
+                # Создаём DataFrame
+                df = pd.DataFrame(data)
+                # В Bybit ответ содержит: timestamp, open, high, low, close, volume, turnover
+                if len(df.columns) >= 6:
+                    df = df.iloc[:, :6]  # Берём первые 6 колонок
+                    df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+                else:
+                    return None
+                
+                # Конвертируем типы
+                for col in ['open', 'high', 'low', 'close', 'volume']:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                
+                df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='s')
                 df = df.set_index('timestamp')
-                df = df.astype(float)
                 df = df[::-1]  # Переворачиваем (от старых к новым)
                 
                 return df
