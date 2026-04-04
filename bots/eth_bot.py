@@ -26,8 +26,8 @@ class ETHUSDTBot(TradingBot):
             'symbol': 'ETHUSDT',
             
             # Торговые параметры
-            'tp': 0.035,  # 3.5%
-            'sl': 0.030,  # 3.0%
+            'tp': 0.05,  # 5%
+            'sl': 0.02,  # 2%
             'timeframe': 5,  # 5 минут
             'qty': 10,  # 10 USDT
             'leverage': 1,
@@ -36,8 +36,8 @@ class ETHUSDTBot(TradingBot):
             # Стратегия
             'strategy': 'ma_crossover',
             'strategy_params': {
-                'short_ma': 10,
-                'long_ma': 26
+                'short_ma': 6,
+                'long_ma': 49
             },
             
             # Риск-параметры
