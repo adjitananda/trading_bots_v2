@@ -377,11 +377,26 @@ class TelegramCommander:
         if not await self._check_auth(update):
             return
         args = context.args
-        if len(args) < 2:
-            await update.message.reply_text("❌ Формат: /optimize BOT_NAME SYMBOL\nПример: /optimize ETHUSDT ETHUSDT")
+        if len(args) == 0:
+            await update.message.reply_text("❌ Формат: /optimize SYMBOL или /optimize BOT_NAME SYMBOL\nПример: /optimize ETHUSDT")
             return
-        bot_name = args[0].upper()
-        symbol = args[1].upper()
+        if len(args) == 1:
+            # Один аргумент - ищем бота по символу
+            symbol = args[0].upper()
+            bot_result = db.execute_query("""
+                SELECT DISTINCT b.name, b.id
+                FROM bots b
+                JOIN bot_symbols bs ON b.id = bs.bot_id
+                WHERE bs.symbol = %s AND b.is_active = 1
+                LIMIT 1
+            """, (symbol,))
+            if not bot_result:
+                await update.message.reply_text(f"❌ Не найден бот для символа {symbol}")
+                return
+            bot_name = bot_result[0]['name']
+        else:
+            bot_name = args[0].upper()
+            symbol = args[1].upper()
         bot = db.get_bot_by_name(bot_name)
         if not bot:
             await update.message.reply_text(f"❌ Бот {bot_name} не найден")
@@ -390,7 +405,7 @@ class TelegramCommander:
         script_path = "/home/trader/trading_bots_v2/src/optimizer/param_optimizer.py"
         try:
             result = subprocess.run(
-                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "20", "--days", "30"],
+                ["python", script_path, "--bot_id", str(bot['id']), "--symbol", symbol, "--trials", "100", "--days", "30"],
                 capture_output=True, text=True, timeout=180
             )
             if result.returncode == 0 and result.stdout.strip():
