@@ -1,0 +1,64 @@
+{
+    "trades": [
+        {
+            "symbol": "ETHUSDT",
+            "side": "BUY",
+            "entry_price": 3000.0,
+            "exit_price": 3100.0,
+            "quantity": 0.5,
+            "pnl": 50.0,
+            "pnl_percent": 3.33,
+            "entry_time": "2026-04-01 10:00:00",
+            "exit_time": "2026-04-01 15:00:00",
+            "exit_reason": "TP"
+        },
+        {
+            "symbol": "ETHUSDT",
+            "side": "BUY",
+            "entry_price": 3050.0,
+            "exit_price": 2980.0,
+            "quantity": 0.5,
+            "pnl": -35.0,
+            "pnl_percent": -2.30,
+            "entry_time": "2026-04-02 10:00:00",
+            "exit_time": "2026-04-02 14:00:00",
+            "exit_reason": "SL"
+        },
+        {
+            "symbol": "BTCUSDT",
+            "side": "BUY",
+            "entry_price": 65000.0,
+            "exit_price": 66500.0,
+            "quantity": 0.01,
+            "pnl": 15.0,
+            "pnl_percent": 2.31,
+            "entry_time": "2026-04-01 11:00:00",
+            "exit_time": "2026-04-01 16:30:00",
+            "exit_reason": "TP"
+        },
+        {
+            "symbol": "BTCUSDT",
+            "side": "SELL",
+            "entry_price": 66000.0,
+            "exit_price": 65500.0,
+            "quantity": 0.01,
+            "pnl": 5.0,
+            "pnl_percent": 0.76,
+            "entry_time": "2026-04-03 09:00:00",
+            "exit_time": "2026-04-03 12:00:00",
+            "exit_reason": "MANUAL"
+        },
+        {
+            "symbol": "SOLUSDT",
+            "side": "BUY",
+            "entry_price": 180.0,
+            "exit_price": 190.0,
+            "quantity": 2.0,
+            "pnl": 20.0,
+            "pnl_percent": 5.56,
+            "entry_time": "2026-04-02 13:00:00",
+            "exit_time": "2026-04-02 18:00:00",
+            "exit_reason": "TP"
+        }
+    ]
+}
