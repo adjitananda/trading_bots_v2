@@ -84,6 +84,20 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("stop", self.cmd_stop))
         self.app.add_handler(CommandHandler("stopall", self.cmd_stop_all))
         self.app.add_handler(CommandHandler("startbot", self.cmd_start_bot))
+        
+        # Команды с префиксами для разных ботов
+        self.app.add_handler(CommandHandler("crypto_status", self.cmd_crypto_status))
+        self.app.add_handler(CommandHandler("crypto_metrics", self.cmd_crypto_metrics))
+        self.app.add_handler(CommandHandler("crypto_optimize", self.cmd_crypto_optimize))
+        
+        self.app.add_handler(CommandHandler("tinkoff_status", self.cmd_tinkoff_status))
+        self.app.add_handler(CommandHandler("tinkoff_metrics", self.cmd_tinkoff_metrics))
+        self.app.add_handler(CommandHandler("tinkoff_optimize", self.cmd_tinkoff_optimize))
+        
+        self.app.add_handler(CommandHandler("moex_status", self.cmd_moex_status))
+        self.app.add_handler(CommandHandler("moex_metrics", self.cmd_moex_metrics))
+        self.app.add_handler(CommandHandler("moex_optimize", self.cmd_moex_optimize))
+
         self.app.add_handler(CommandHandler("startall", self.cmd_start_all))
         
         self.app.add_handler(CallbackQueryHandler(self.button_handler))
@@ -644,3 +658,176 @@ if __name__ == "__main__":
         sys.exit(1)
     commander = TelegramCommander(token)
     commander.run()
+
+    # ==================== КОМАНДЫ CRYPTO_BOT ====================
+    
+    async def cmd_crypto_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Статус CRYPTO_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        result = self._get_bot_status("CRYPTO_BOT")
+        await update.message.reply_text(result)
+    
+    async def cmd_crypto_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Метрики CRYPTO_BOT. Формат: /crypto_metrics ETHUSDT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /crypto_metrics ETHUSDT")
+            return
+        
+        symbol = args[0].upper()
+        result = self._get_symbol_metrics("CRYPTO_BOT", symbol)
+        await update.message.reply_text(result)
+    
+    async def cmd_crypto_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Оптимизация для CRYPTO_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите символ. Пример: /crypto_optimize ETHUSDT")
+            return
+        
+        symbol = args[0].upper()
+        await update.message.reply_text(f"🚀 Запущена оптимизация для {symbol} (CRYPTO_BOT)")
+        # Здесь будет вызов оптимизатора
+    
+    # ==================== КОМАНДЫ TINKOFF_BOT ====================
+    
+    async def cmd_tinkoff_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Статус TINKOFF_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        result = self._get_bot_status("TINKOFF_BOT")
+        await update.message.reply_text(result)
+    
+    async def cmd_tinkoff_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Метрики TINKOFF_BOT. Формат: /tinkoff_metrics SBER"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите тикер. Пример: /tinkoff_metrics SBER")
+            return
+        
+        symbol = args[0].upper()
+        result = self._get_symbol_metrics("TINKOFF_BOT", symbol)
+        await update.message.reply_text(result)
+    
+    async def cmd_tinkoff_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Оптимизация для TINKOFF_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите тикер. Пример: /tinkoff_optimize SBER")
+            return
+        
+        symbol = args[0].upper()
+        await update.message.reply_text(f"🚀 Запущена оптимизация для {symbol} (TINKOFF_BOT)")
+    
+    # ==================== КОМАНДЫ MOEX_BOT ====================
+    
+    async def cmd_moex_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Статус MOEX_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        result = self._get_bot_status("MOEX_BOT")
+        await update.message.reply_text(result)
+    
+    async def cmd_moex_metrics(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Метрики MOEX_BOT. Формат: /moex_metrics SiH6"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите фьючерс. Пример: /moex_metrics SiH6")
+            return
+        
+        symbol = args[0].upper()
+        result = self._get_symbol_metrics("MOEX_BOT", symbol)
+        await update.message.reply_text(result)
+    
+    async def cmd_moex_optimize(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Оптимизация для MOEX_BOT"""
+        if not await self._check_auth(update):
+            return
+        await self._send_typing(update, context)
+        
+        args = context.args
+        if not args:
+            await update.message.reply_text("❌ Укажите фьючерс. Пример: /moex_optimize SiH6")
+            return
+        
+        symbol = args[0].upper()
+        await update.message.reply_text(f"🚀 Запущена оптимизация для {symbol} (MOEX_BOT)")
+    
+    # ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
+    
+    def _get_bot_status(self, bot_name: str) -> str:
+        """Получить статус бота"""
+        bot = db.execute_query("SELECT id, status, started_at FROM bots WHERE name = %s", (bot_name,))
+        if not bot:
+            return f"❌ Бот {bot_name} не найден"
+        
+        status = bot[0]['status']
+        status_icon = "✅" if status == "active" else "⏸️" if status == "paused" else "❌"
+        
+        return f"{status_icon} Бот {bot_name}\nСтатус: {status}\nЗапущен: {bot[0]['started_at'] or 'никогда'}"
+    
+    def _get_symbol_metrics(self, bot_name: str, symbol: str) -> str:
+        """Получить метрики символа"""
+        bot = db.execute_query("SELECT id FROM bots WHERE name = %s", (bot_name,))
+        if not bot:
+            return f"❌ Бот {bot_name} не найден"
+        
+        bot_id = bot[0]['id']
+        
+        # Получаем параметры символа
+        symbol_data = db.execute_query("""
+            SELECT symbol, strategy_params, risk_params, risk_multiplier, is_active
+            FROM bot_symbols
+            WHERE bot_id = %s AND symbol = %s
+        """, (bot_id, symbol))
+        
+        if not symbol_data:
+            return f"❌ Символ {symbol} не найден в боте {bot_name}"
+        
+        row = symbol_data[0]
+        params = row['strategy_params']
+        if isinstance(params, str):
+            import json
+            params = json.loads(params)
+        
+        risk_mult = row['risk_multiplier'] or 1.0
+        is_active = "активен" if row['is_active'] else "неактивен"
+        
+        msg = f"📊 {bot_name} — {symbol} ({is_active})\n"
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        msg += "📈 Параметры стратегии:\n"
+        for k, v in params.items():
+            if isinstance(v, float):
+                msg += f"   • {k}: {v:.2f}\n"
+            else:
+                msg += f"   • {k}: {v}\n"
+        msg += f"\n⚠️ risk_multiplier: {risk_mult}"
+        
+        return msg
