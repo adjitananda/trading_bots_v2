@@ -77,3 +77,32 @@ class BybitAdapter(ExchangeInterface):
             'weekends': [],  # Bybit торгуется 24/7
             'is_24_7': True
         }
+
+    def get_exchange_info(self) -> Dict[str, Any]:
+        """Получить информацию о бирже"""
+        return {
+            'name': self.exchange_name,
+            'id': self.exchange_id,
+            'type': 'futures',
+            'timezone': 'UTC',
+            'is_24_7': True
+        }
+    
+    def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
+        """Получить открытые ордера"""
+        if hasattr(self.client, 'get_open_orders'):
+            return self.client.get_open_orders(symbol)
+        return []
+    
+    def get_ticker(self, symbol: str) -> Dict[str, float]:
+        """Получить тикер"""
+        price = self.get_current_price(symbol)
+        return {
+            'symbol': symbol,
+            'last_price': price or 0,
+            'bid': price,
+            'ask': price,
+            'volume': 0,
+            'high': 0,
+            'low': 0
+        }
