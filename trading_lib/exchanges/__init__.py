@@ -13,3 +13,9 @@ __all__ = [
     'get_exchange',
     'get_exchange_by_name',
 ]
+
+# Тинькофф
+from trading_lib.exchanges.tinkoff_adapter import TinkoffAdapter
+
+# Мосбиржа
+from trading_lib.exchanges.moex_adapter import MoexAdapter
