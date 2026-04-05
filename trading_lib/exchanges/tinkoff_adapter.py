@@ -25,7 +25,7 @@ class TinkoffAdapter(ExchangeInterface):
             config: Конфигурация с token
         """
         self.config = config or {}
-        self.token = self.config.get('token') or os.getenv('TINKOFF_TOKEN')
+        self.token = self.config.get('token') or os.getenv('TINKOFF_TOKEN') or os.getenv('TINKOFF_API_TOKEN')
         self.exchange_name = "tinkoff"
         self.exchange_id = 2  # ID после вставки в БД
         

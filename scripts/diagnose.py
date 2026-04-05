@@ -187,13 +187,11 @@ def check_reload_flag():
     bot_id = result[0]['bot_id']
     symbol = result[0]['symbol']
     
-    # Устанавливаем reload_flag=1
     db.execute_update(
         "UPDATE bot_symbols SET reload_flag = 1 WHERE bot_id = %s AND symbol = %s",
         (bot_id, symbol)
     )
     
-    # Проверяем что установилось
     check = db.execute_query(
         "SELECT reload_flag FROM bot_symbols WHERE bot_id = %s AND symbol = %s",
         (bot_id, symbol)
@@ -204,7 +202,6 @@ def check_reload_flag():
     else:
         logger.error(f"  ❌ Не удалось установить reload_flag для {symbol}")
     
-    # Сбрасываем обратно
     db.execute_update(
         "UPDATE bot_symbols SET reload_flag = 0 WHERE bot_id = %s AND symbol = %s",
         (bot_id, symbol)
@@ -229,8 +226,7 @@ def check_symbol_validation():
                 logger.info(f"  ✅ {sym}: валиден")
             else:
                 logger.warning(f"  ⚠️ {sym}: {msg[:60]}")
-                
-        # Проверка невалидного символа
+        
         valid, msg = validate_symbol(client, "INVALID_SYMBOL_XYZ")
         if not valid:
             logger.info(f"  ✅ Невалидный символ корректно отклонён: {msg[:60]}")
@@ -244,7 +240,6 @@ def check_overfit_interpretation():
     """Проверка интерпретации overfit_ratio"""
     logger.info("\n📊 ПРОВЕРКА OVERFIT_RATIO:")
     
-    # Проверяем наличие колонок в optimization_history
     result = db.execute_query("DESCRIBE optimization_history")
     columns = [r['Field'] for r in result]
     
@@ -255,7 +250,6 @@ def check_overfit_interpretation():
         else:
             logger.warning(f"  ⚠️ Колонка {col} не найдена")
     
-    # Проверяем нет ли значений 999
     bad_values = db.execute_query(
         "SELECT COUNT(*) as cnt FROM optimization_history WHERE overfit_ratio = 999"
     )
@@ -264,7 +258,6 @@ def check_overfit_interpretation():
     else:
         logger.info("  ✅ Нет записей с некорректным overfit_ratio=999")
     
-    # Проверяем наличие записей с test_sharpe = -1
     bad_sharpe = db.execute_query(
         "SELECT COUNT(*) as cnt FROM optimization_history WHERE test_sharpe = -1"
     )
@@ -272,6 +265,62 @@ def check_overfit_interpretation():
         logger.warning(f"  ⚠️ Найдено {bad_sharpe[0]['cnt']} записей с test_sharpe = -1")
     else:
         logger.info("  ✅ Нет записей с test_sharpe = -1")
+
+
+def check_trading_lib():
+    """Проверка наличия trading_lib"""
+    logger.info("\n📚 ПРОВЕРКА TRADING_LIB:")
+    
+    try:
+        import trading_lib
+        logger.info("  ✅ trading_lib импортируется")
+        
+        from trading_lib.exchanges import BybitAdapter, TinkoffAdapter, MoexAdapter
+        logger.info("  ✅ BybitAdapter, TinkoffAdapter, MoexAdapter доступны")
+    except ImportError as e:
+        logger.error(f"  ❌ Ошибка: {e}")
+
+
+def check_new_bots():
+    """Проверка статуса новых ботов"""
+    logger.info("\n🤖 ПРОВЕРКА НОВЫХ БОТОВ:")
+    
+    bots = ['CRYPTO_BOT', 'TINKOFF_BOT', 'MOEX_BOT']
+    
+    for bot_name in bots:
+        result = db.execute_query(
+            "SELECT id, status FROM bots WHERE name = %s",
+            (bot_name,)
+        )
+        if result:
+            status = result[0]['status']
+            status_icon = "✅" if status == "active" else "⚠️"
+            logger.info(f"  {status_icon} {bot_name}: {status}")
+        else:
+            logger.warning(f"  ⚠️ {bot_name}: не найден в БД")
+
+
+def check_exchange_adapters_new():
+    """Проверка новых адаптеров"""
+    logger.info("\n🔄 ПРОВЕРКА НОВЫХ АДАПТЕРОВ:")
+    
+    try:
+        from trading_lib.exchanges import TinkoffAdapter, MoexAdapter
+        
+        tinkoff = TinkoffAdapter()
+        if tinkoff.test_connection():
+            logger.info("  ✅ Тинькофф: токен установлен")
+        else:
+            logger.warning("  ⚠️ Тинькофф: токен не установлен")
+        
+        moex = MoexAdapter()
+        if moex.test_connection():
+            logger.info("  ✅ Мосбиржа: ISS API доступен")
+        else:
+            logger.warning("  ⚠️ Мосбиржа: проблемы с API")
+            
+    except Exception as e:
+        logger.error(f"  ❌ Ошибка: {e}")
 
 
 def main():
@@ -290,6 +339,9 @@ def main():
     check_reload_flag()
     check_symbol_validation()
     check_overfit_interpretation()
+    check_trading_lib()
+    check_new_bots()
+    check_exchange_adapters_new()
     
     logger.info("\n" + "=" * 50)
     logger.info("✅ Диагностика завершена")
