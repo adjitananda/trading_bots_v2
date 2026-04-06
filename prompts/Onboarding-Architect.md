@@ -78,5 +78,5 @@ SHOW CREATE TABLE command_logs\G
 SHOW CREATE TABLE snapshots\G
 " > schema_output.txt
 
-cat schema_output.txt
+cat /home/trader/trading_bots_v2/process/schema_output.txt
 
