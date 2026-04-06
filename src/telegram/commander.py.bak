@@ -86,6 +86,33 @@ class TelegramCommander:
         self.app.add_handler(CommandHandler("startbot", self.cmd_start_bot))
         
         # Команды с префиксами для разных ботов
+        self.app.add_handler(CommandHandler("crypto_status", self.cmd_crypto_status))
+        self.app.add_handler(CommandHandler("crypto_metrics", self.cmd_crypto_metrics))
+        self.app.add_handler(CommandHandler("crypto_optimize", self.cmd_crypto_optimize))
+        
+        self.app.add_handler(CommandHandler("tinkoff_status", self.cmd_tinkoff_status))
+        self.app.add_handler(CommandHandler("tinkoff_metrics", self.cmd_tinkoff_metrics))
+        self.app.add_handler(CommandHandler("tinkoff_optimize", self.cmd_tinkoff_optimize))
+        
+        self.app.add_handler(CommandHandler("moex_status", self.cmd_moex_status))
+        self.app.add_handler(CommandHandler("moex_metrics", self.cmd_moex_metrics))
+        self.app.add_handler(CommandHandler("moex_optimize", self.cmd_moex_optimize))
+
+        self.app.add_handler(CommandHandler("startall", self.cmd_start_all))
+        
+        self.app.add_handler(CallbackQueryHandler(self.button_handler))
+        self.app.add_error_handler(self.error_handler)
+    
+    async def _check_auth(self, update: Update) -> bool:
+        user_id = update.effective_user.id
+        if user_id not in ALLOWED_USER_IDS:
+            await update.message.reply_text("⛔️ Доступ запрещен.")
+            return False
+        return True
+    
+    async def _send_typing(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    
     def _format_number_html(self, value: float) -> str:
         if value >= 0:
             return f"+{value:.2f}"
