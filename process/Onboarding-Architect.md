@@ -18,6 +18,7 @@
 | 2 | Дорожная карта | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Roadmap.md |
 | 3 | Глоссарий | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Glossary.md |
 | 4 | Стандарты кодирования | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Coding-standards.md |
+| 5 | Ведение Issue | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Issue-workflow.md |
 
 ---
 

@@ -1,0 +1,297 @@
+*************************** 1. row ***************************
+       Table: bots
+Create Table: CREATE TABLE `bots` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `exchange_id` int NOT NULL,
+  `strategy_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `strategy_params` json DEFAULT NULL,
+  `risk_params` json DEFAULT NULL,
+  `status` enum('active','paused','stopped','error') COLLATE utf8mb4_unicode_ci DEFAULT 'active',
+  `status_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status_changed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `started_at` timestamp NULL DEFAULT NULL,
+  `stopped_at` timestamp NULL DEFAULT NULL,
+  `version` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '1.0.0',
+  `parent_bot_id` int DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `parent_bot_id` (`parent_bot_id`),
+  KEY `idx_name` (`name`),
+  KEY `idx_status` (`status`),
+  KEY `idx_exchange` (`exchange_id`),
+  KEY `idx_active` (`is_active`),
+  CONSTRAINT `bots_ibfk_1` FOREIGN KEY (`exchange_id`) REFERENCES `exchanges` (`id`),
+  CONSTRAINT `bots_ibfk_2` FOREIGN KEY (`parent_bot_id`) REFERENCES `bots` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: bot_symbols
+Create Table: CREATE TABLE `bot_symbols` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `strategy_params` json NOT NULL,
+  `risk_params` json DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `reload_flag` tinyint DEFAULT '0',
+  `risk_multiplier` decimal(3,2) DEFAULT '1.00',
+  `halted_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_bot_symbol` (`bot_id`,`symbol`),
+  CONSTRAINT `bot_symbols_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: trades
+Create Table: CREATE TABLE `trades` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `exchange_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `side` enum('BUY','SELL') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `entry_time` datetime NOT NULL,
+  `entry_price` decimal(20,8) NOT NULL,
+  `quantity` decimal(20,8) NOT NULL,
+  `exit_time` datetime DEFAULT NULL,
+  `exit_price` decimal(20,8) DEFAULT NULL,
+  `pnl` decimal(20,4) DEFAULT NULL,
+  `pnl_percent` decimal(10,4) DEFAULT NULL,
+  `status` enum('open','closed','cancelled') COLLATE utf8mb4_unicode_ci DEFAULT 'open',
+  `exit_reason` enum('TP','SL','MANUAL','LIQUIDATION','CANCELLED','UNKNOWN') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `entry_order_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exit_order_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `source_entry` enum('auto','manual') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Источник открытия сделки',
+  `source_exit` enum('auto','manual') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Источник закрытия сделки',
+  PRIMARY KEY (`id`),
+  KEY `idx_bot` (`bot_id`),
+  KEY `idx_exchange` (`exchange_id`),
+  KEY `idx_symbol` (`symbol`),
+  KEY `idx_status` (`status`),
+  KEY `idx_entry_time` (`entry_time`),
+  KEY `idx_exit_time` (`exit_time`),
+  KEY `idx_bot_status` (`bot_id`,`status`),
+  KEY `idx_trades_exit_time_pnl` (`exit_time`,`pnl`),
+  KEY `idx_trades_source_entry` (`source_entry`),
+  KEY `idx_trades_source_exit` (`source_exit`),
+  CONSTRAINT `trades_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`),
+  CONSTRAINT `trades_ibfk_2` FOREIGN KEY (`exchange_id`) REFERENCES `exchanges` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=245 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: orders
+Create Table: CREATE TABLE `orders` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `trade_id` bigint DEFAULT NULL,
+  `bot_id` int NOT NULL,
+  `exchange_id` int NOT NULL,
+  `exchange_order_id` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `side` enum('BUY','SELL') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `order_type` enum('market','limit','stop','take_profit','stop_loss') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quantity` decimal(20,8) NOT NULL,
+  `filled_quantity` decimal(20,8) DEFAULT '0.00000000',
+  `price` decimal(20,8) DEFAULT NULL,
+  `average_fill_price` decimal(20,8) DEFAULT NULL,
+  `status` enum('new','partially_filled','filled','cancelled','rejected','expired') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `cancel_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `failure_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `finished_at` timestamp NULL DEFAULT NULL,
+  `metadata` json DEFAULT NULL,
+  `source` enum('auto','manual') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'auto' COMMENT 'Источник ордера: auto - автоматическая стратегия, manual - ручная команда',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_exchange_order` (`exchange_id`,`exchange_order_id`),
+  KEY `idx_trade` (`trade_id`),
+  KEY `idx_bot` (`bot_id`),
+  KEY `idx_exchange_order` (`exchange_order_id`),
+  KEY `idx_symbol` (`symbol`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created` (`created_at`),
+  KEY `idx_orders_status_created` (`status`,`created_at`),
+  KEY `idx_orders_source` (`source`),
+  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`trade_id`) REFERENCES `trades` (`id`),
+  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`),
+  CONSTRAINT `orders_ibfk_3` FOREIGN KEY (`exchange_id`) REFERENCES `exchanges` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=245 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: optimization_history
+Create Table: CREATE TABLE `optimization_history` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `trigger_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `optimization_start` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `optimization_end` timestamp NULL DEFAULT NULL,
+  `trials_count` int DEFAULT '100',
+  `best_sharpe` decimal(10,4) DEFAULT NULL,
+  `test_sharpe` decimal(10,4) DEFAULT NULL,
+  `overfit_ratio` decimal(10,4) DEFAULT NULL,
+  `best_params` json DEFAULT NULL,
+  `applied` tinyint(1) DEFAULT '0',
+  `applied_at` timestamp NULL DEFAULT NULL,
+  `rejected` tinyint(1) DEFAULT '0',
+  `rejected_reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `report_path` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `old_params` json DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_bot_symbol` (`bot_id`,`symbol`),
+  KEY `idx_applied` (`applied`),
+  KEY `idx_created` (`optimization_start`),
+  CONSTRAINT `optimization_history_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: bot_performance_metrics
+Create Table: CREATE TABLE `bot_performance_metrics` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `metric_date` date NOT NULL,
+  `total_pnl` decimal(20,4) DEFAULT NULL,
+  `total_trades` int DEFAULT NULL,
+  `win_rate` decimal(5,2) DEFAULT NULL,
+  `sharpe_ratio` decimal(10,4) DEFAULT NULL,
+  `max_drawdown` decimal(10,4) DEFAULT NULL,
+  `profit_factor` decimal(10,4) DEFAULT NULL,
+  `sortino_ratio` decimal(10,4) DEFAULT NULL,
+  `calmar_ratio` decimal(10,4) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_bot_symbol_date` (`bot_id`,`symbol`,`metric_date`),
+  CONSTRAINT `bot_performance_metrics_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: market_regime_log
+Create Table: CREATE TABLE `market_regime_log` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `regime` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `adx_value` decimal(6,2) DEFAULT NULL,
+  `atr_ratio` decimal(6,2) DEFAULT NULL,
+  `ema200_direction` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `timestamp` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bot_symbol` (`bot_id`,`symbol`),
+  KEY `idx_timestamp` (`timestamp`),
+  CONSTRAINT `market_regime_log_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: trigger_log
+Create Table: CREATE TABLE `trigger_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `symbol` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `trigger_level` int NOT NULL,
+  `reasons` json DEFAULT NULL,
+  `action_taken` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `timestamp` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bot_symbol` (`bot_id`,`symbol`),
+  KEY `idx_level` (`trigger_level`),
+  CONSTRAINT `trigger_log_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: alerts
+Create Table: CREATE TABLE `alerts` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `level` enum('INFO','WARNING','CRITICAL') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `threshold_value` decimal(20,4) DEFAULT NULL,
+  `actual_value` decimal(20,4) DEFAULT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `acknowledged` tinyint(1) DEFAULT '0',
+  `acknowledged_at` timestamp NULL DEFAULT NULL,
+  `action_taken` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bot` (`bot_id`),
+  KEY `idx_level` (`level`),
+  KEY `idx_created` (`created_at`),
+  KEY `idx_acknowledged` (`acknowledged`),
+  KEY `idx_alerts_level_acknowledged` (`level`,`acknowledged`,`created_at`),
+  CONSTRAINT `alerts_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=59032 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: bot_stop_events
+Create Table: CREATE TABLE `bot_stop_events` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `alert_id` bigint DEFAULT NULL,
+  `stop_type` enum('soft','hard','pause') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `stop_reason` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `triggered_by` enum('SYSTEM','USER','ADMIN') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `triggered_by_user_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `positions_before_stop` json DEFAULT NULL,
+  `auto_restart_scheduled` tinyint(1) DEFAULT '0',
+  `auto_restart_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `alert_id` (`alert_id`),
+  KEY `idx_bot` (`bot_id`),
+  KEY `idx_created` (`created_at`),
+  CONSTRAINT `bot_stop_events_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`),
+  CONSTRAINT `bot_stop_events_ibfk_2` FOREIGN KEY (`alert_id`) REFERENCES `alerts` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1211 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: exchanges
+Create Table: CREATE TABLE `exchanges` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `display_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('spot','futures','both') COLLATE utf8mb4_unicode_ci DEFAULT 'futures',
+  `is_active` tinyint(1) DEFAULT '1',
+  `api_config` json DEFAULT NULL,
+  `fee_maker` decimal(5,4) DEFAULT '0.0200',
+  `fee_taker` decimal(5,4) DEFAULT '0.0550',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: command_logs
+Create Table: CREATE TABLE `command_logs` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `username` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `command` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `args` json DEFAULT NULL,
+  `success` tinyint(1) DEFAULT '1',
+  `result` json DEFAULT NULL,
+  `error_message` text COLLATE utf8mb4_unicode_ci,
+  `executed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_command` (`command`),
+  KEY `idx_executed` (`executed_at`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+*************************** 1. row ***************************
+       Table: snapshots
+Create Table: CREATE TABLE `snapshots` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `bot_id` int NOT NULL,
+  `exchange_id` int NOT NULL,
+  `timestamp` datetime NOT NULL,
+  `balance` decimal(20,4) NOT NULL,
+  `total_pnl` decimal(20,4) NOT NULL,
+  `daily_pnl` decimal(20,4) DEFAULT NULL,
+  `open_positions_count` int DEFAULT '0',
+  `open_positions_json` json DEFAULT NULL,
+  `drawdown_current` decimal(10,4) DEFAULT '0.0000',
+  `drawdown_max` decimal(10,4) DEFAULT '0.0000',
+  `consecutive_losses` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `exchange_id` (`exchange_id`),
+  KEY `idx_bot_time` (`bot_id`,`timestamp`),
+  KEY `idx_timestamp` (`timestamp`),
+  CONSTRAINT `snapshots_ibfk_1` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`),
+  CONSTRAINT `snapshots_ibfk_2` FOREIGN KEY (`exchange_id`) REFERENCES `exchanges` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=61473 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
