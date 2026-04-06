@@ -19,7 +19,7 @@
 | 3 | Глоссарий | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Glossary.md |
 | 4 | Стандарты кодирования | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Coding-standards.md |
 | 5 | Ведение Issue | https://github.com/adjitananda/trading_bots_v2/blob/main/process/Issue-workflow.md |
-
+Схему БД читай в файле: https://github.com/adjitananda/trading_bots_v2/blob/main/process/schema_output.txt
 ---
 
 ### Структура основных ботов (скелет)
@@ -79,3 +79,4 @@ SHOW CREATE TABLE snapshots\G
 " > schema_output.txt
 
 cat schema_output.txt
+
