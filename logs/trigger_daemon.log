@@ -658,3 +658,179 @@
 2026-04-05 23:22:15,952 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
 
 2026-04-05 23:22:15,952 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 00:22:15,955 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 00:22:15,981 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 00:22:15,987 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 00:22:15,992 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 00:22:15,998 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 00:22:16,011 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 00:22:16,015 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 00:22:16,021 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 00:22:16,024 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 00:22:16,024 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 00:22:16,024 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 00:22:16,024 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 00:22:16,024 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 00:22:16,051 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 00:22:16,051 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 01:22:16,052 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 01:22:16,071 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 01:22:16,082 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 01:22:16,091 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 01:22:16,101 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 01:22:16,116 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 01:22:16,125 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 01:22:16,129 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 01:22:16,134 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 01:22:16,135 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 01:22:16,135 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 01:22:16,135 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 01:22:16,135 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 01:22:16,171 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 01:22:16,171 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 02:22:16,172 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 02:22:16,182 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 02:22:16,186 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 02:22:16,190 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 02:22:16,194 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 02:22:16,200 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 02:22:16,205 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 02:22:16,210 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 02:22:16,214 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 02:22:16,214 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 02:22:16,214 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 02:22:16,214 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 02:22:16,215 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 02:22:16,244 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 02:22:16,245 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 03:22:16,246 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 03:22:16,270 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 03:22:16,276 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 03:22:16,281 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 03:22:16,287 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 03:22:16,295 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 03:22:16,298 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 03:22:16,301 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 03:22:16,308 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 03:22:16,308 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 03:22:16,308 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 03:22:16,308 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 03:22:16,308 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 03:22:16,349 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 03:22:16,350 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 04:22:16,351 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 04:22:16,366 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 04:22:16,370 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 04:22:16,374 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 04:22:16,379 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 04:22:16,389 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 04:22:16,394 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 04:22:16,398 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 04:22:16,402 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 04:22:16,402 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 04:22:16,402 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 04:22:16,403 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 04:22:16,403 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 04:22:16,432 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 04:22:16,432 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 05:22:16,434 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 05:22:16,456 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 05:22:16,459 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 05:22:16,463 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 05:22:16,467 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 05:22:16,474 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 05:22:16,478 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 05:22:16,481 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 05:22:16,484 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 05:22:16,484 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 05:22:16,484 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 05:22:16,484 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 05:22:16,484 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 05:22:16,527 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 05:22:16,527 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 06:22:16,529 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 06:22:16,545 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 06:22:16,552 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 06:22:16,558 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 06:22:16,564 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 06:22:16,573 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 06:22:16,578 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 06:22:16,582 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 06:22:16,588 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 06:22:16,589 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 06:22:16,589 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 06:22:16,589 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 06:22:16,589 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 06:22:16,627 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 06:22:16,627 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 07:22:16,628 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 07:22:16,640 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 07:22:16,645 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 07:22:16,650 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 07:22:16,656 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 07:22:16,671 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 07:22:16,677 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 07:22:16,681 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 07:22:16,686 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 07:22:16,686 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 07:22:16,686 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 07:22:16,686 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 07:22:16,686 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 07:22:16,720 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 07:22:16,720 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 08:22:16,721 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 08:22:16,741 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 08:22:16,749 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 08:22:16,756 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 08:22:16,764 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 08:22:16,776 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 08:22:16,784 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 08:22:16,789 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 08:22:16,794 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 08:22:16,794 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 08:22:16,794 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 08:22:16,795 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 08:22:16,795 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 08:22:16,823 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 08:22:16,823 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 09:22:16,825 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 09:22:16,846 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 09:22:16,854 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 09:22:16,860 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 09:22:16,868 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 09:22:16,881 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 09:22:16,889 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 09:22:16,894 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 09:22:16,899 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 09:22:16,899 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 09:22:16,899 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 09:22:16,899 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 09:22:16,899 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 09:22:16,932 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 09:22:16,933 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
+2026-04-06 10:22:16,934 - __main__ - INFO - 🔍 Проверка метрик всех ботов...
+2026-04-06 10:22:16,947 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 4, символа ADAUSDT
+2026-04-06 10:22:16,951 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 5, символа BTCUSDT
+2026-04-06 10:22:16,955 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 6, символа DOGEUSDT
+2026-04-06 10:22:16,960 - src.optimizer.triggers - WARNING - 🔔 Триггер сработал для ETHUSDT: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 10:22:16,968 - src.optimizer.triggers - INFO - 📝 Создан алерт #1 для бота 7, символа ETHUSDT
+2026-04-06 10:22:16,974 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 8, символа LTCUSDT
+2026-04-06 10:22:16,977 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 9, символа SOLUSD
+2026-04-06 10:22:16,981 - src.optimizer.triggers - INFO - Нет данных по метрикам для бота 10, символа XRPUSDT
+2026-04-06 10:22:16,981 - __main__ - INFO - ⚠️ Найдено сработавших триггеров: 1
+2026-04-06 10:22:16,981 - __main__ - INFO -    📊 CRYPTO_BOT ETHUSDT: ['Sharpe Ratio = -0.18 (порог 1.0)', 'Profit Factor = 0.23 (порог 1.2)']
+2026-04-06 10:22:16,981 - __main__ - INFO - 🚀 Запуск оптимизации для ETHUSDT (бот 7)
+2026-04-06 10:22:16,981 - __main__ - INFO -    Причины: Sharpe Ratio = -0.18 (порог 1.0), Profit Factor = 0.23 (порог 1.2)
+2026-04-06 10:22:17,008 - __main__ - ERROR - ❌ Ошибка оптимизации для ETHUSDT: /home/trader/.venv/bin/python: can't open file '/home/trader/trading_bots_v2/scripts/param_optimizer.py': [Errno 2] No such file or directory
+
+2026-04-06 10:22:17,008 - __main__ - INFO - 💤 Ожидание 60 минут до следующей проверки...
