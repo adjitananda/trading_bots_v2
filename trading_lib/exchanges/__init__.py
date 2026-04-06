@@ -1,21 +1,8 @@
 """
-Биржевые адаптеры.
+Exchanges package for Tinkoff, MOEX, Bybit adapters.
 """
 
-from trading_lib.exchanges.interface import ExchangeInterface
-from trading_lib.exchanges.bybit_adapter import BybitAdapter
-from trading_lib.exchanges.factory import ExchangeFactory, get_exchange, get_exchange_by_name
+from .TinkoffAdapter import TinkoffAdapter
+from .MoexAdapter import MoexAdapter
 
-__all__ = [
-    'ExchangeInterface',
-    'BybitAdapter',
-    'ExchangeFactory',
-    'get_exchange',
-    'get_exchange_by_name',
-]
-
-# Тинькофф
-from trading_lib.exchanges.tinkoff_adapter import TinkoffAdapter
-
-# Мосбиржа
-from trading_lib.exchanges.moex_adapter import MoexAdapter
+__all__ = ['TinkoffAdapter', 'MoexAdapter']
